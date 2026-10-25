@@ -358,10 +358,6 @@ def show_login():
     e_user = tk.Entry(box, width=35)
     e_user.pack(pady=(3, 10))
     
-    tk.Label(box, text="Email:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_email = tk.Entry(box, width=35)
-    e_email.pack(pady=(3, 10))
-    
     tk.Label(box, text="Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
     e_pass = tk.Entry(box, width=35, show="*")
     e_pass.pack(pady=(3, 15))
