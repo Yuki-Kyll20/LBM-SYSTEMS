@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 import Main
-
+from Main import set_user_status, current_user
 # ========== SHORTCUTS ==========
 root = Main.root
 clear_all = Main.clear_all
@@ -26,7 +26,6 @@ FONT_HEADING = Main.FONT_HEADING
 # ==================================================
 # ADMIN DASHBOARD — Screens
 # ==================================================
-
 def show_overdue_detail():
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
@@ -129,13 +128,11 @@ def show_add_user():
     frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
     frame.pack(fill="both", expand=True)
 
-    # --- Top Bar ---
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
     top_bar.pack(fill="x")
     tk.Button(top_bar, text="BACK", bg=BTN_BROWN, fg="white", width=10,
               relief="solid", borderwidth=1, command=show_admin_dashboard).pack(side="right")
-
-    # --- Form Container ---
+    
     form_container = tk.Frame(frame, bg=BG_CONTENT, padx=50, pady=30, relief="solid", borderwidth=1)
     form_container.place(relx=0.5, rely=0.45, anchor="center")
 
@@ -180,8 +177,8 @@ def show_add_user():
     e_security = tk.Entry(form_container, width=45, font=FONT)
     e_security.pack(pady=(0, 20))
     entries["Security Answer"] = e_security
-
     # --- CREATE ACCOUNT ---
+
     def create_account():
         username = entries["Username"].get().strip()
         email = entries["Email"].get().strip()
@@ -209,8 +206,8 @@ def show_add_user():
         try:
             cur = conn.cursor()
             cur.execute("""
-                INSERT INTO User (Username, Email, Password, Security_Answer, User_Role)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO User (Username, Email, Password, Security_Question, Security_Answer, User_Role, Status)
+                VALUES (%s, %s, %s, 'What is your favorite book?', %s, %s, 'Offline')
             """, (username, email if email else None, password, answer, role))
             conn.commit()
             messagebox.showinfo("Success", f"User '{username}' created successfully!")
@@ -220,8 +217,6 @@ def show_add_user():
         finally:
             conn.close()
 
-
-    # --- Buttons ---
     btn_frame = tk.Frame(form_container, bg=BG_CONTENT)
     btn_frame.pack(fill="x")
 
@@ -234,18 +229,15 @@ def show_all_users():
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
     frame.pack(fill="both", expand=True)
-    
-    # --- BACK Button at Top Right ---
+
     tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
               relief="solid", borderwidth=1, command=show_admin_dashboard).place(x=1130, y=15)
 
-    # --- Main Box ---
     box = tk.Frame(frame, bg="#FFF3D0", padx=30, pady=25, relief="solid", borderwidth=2)
     box.place(relx=0.5, rely=0.5, anchor="center")
 
     tk.Label(box, text="VIEW ALL USERS", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK).pack(anchor="w", pady=(0, 15))
-    
-    # --- Table Header ---
+
     header = tk.Frame(box, bg="#FFF3D0")
     header.pack(fill="x")
 
@@ -258,7 +250,6 @@ def show_all_users():
 
     tk.Frame(box, bg="#000", height=1).pack(fill="x", pady=2)
 
-    # --- Get Users from Database ---
     conn = get_db_connection()
     users = []
     if conn:
@@ -275,7 +266,6 @@ def show_all_users():
         tk.Label(box, text="No users found.", font=FONT, bg="#FFF3D0", fg=TEXT_DARK, pady=15).pack()
         return
 
-    # --- User Rows ---
     for username, role, date in users:
         row = tk.Frame(box, bg="#FFF3D0")
         row.pack(fill="x")
@@ -509,13 +499,26 @@ def show_admin_dashboard():
             Authors.show_authors_screen()
         except ModuleNotFoundError:
             messagebox.showerror("Error", "Authors.py not found!\nCheck filename and folder.")
+
+    def open_categories():
+        import sys
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+        try:
+            import Category
+            Category.show_categories_screen()
+        except ModuleNotFoundError:
+            messagebox.showerror("Error", 
+                "Category.py not found!\nCheck:\n• File exists: Category.py\n• Same folder as AdminDB.py")
     
     nav_items = [
         ("Home", show_admin_dashboard),
         ("Navigations", show_navigation_dashboard),
         ("Books", open_books),
         ("Authors", open_authors),
-        ("Categories", lambda: messagebox.showinfo("Categories", "Categories screen")),
+        ("Categories", open_categories),
         ("Reading Records", lambda: messagebox.showinfo("Records", "Reading Records screen")),
         ("My Collection", lambda: messagebox.showinfo("Collection", "My Collection screen")),
         ("Account", lambda: messagebox.showinfo("Account", "Account screen")),
@@ -532,8 +535,8 @@ def show_admin_dashboard():
     tk.Frame(sidebar, bg="#5c290c", height=2).pack(fill="x", pady=10)
     
     tk.Button(sidebar, text="Logout", font=FONT, bg=BTN_RED, fg="white",
-              relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
-              command=back_to_login).pack(pady=5, side="bottom")
+          relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
+          command=lambda: [Main.set_user_status("Offline"), Main.back_to_login()]).pack(pady=5, side="bottom")
     
     content = tk.Frame(root, bg=BG_MAIN)
     content.pack(side="right", fill="both", expand=True)
@@ -565,8 +568,19 @@ def show_admin_dashboard():
     for title, count in stats_data:
         card = tk.Frame(stats_frame, bg=BG_CONTENT, padx=35, pady=20, relief="solid", borderwidth=1)
         card.pack(side="left", padx=8)
-        tk.Label(card, text=title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
-        tk.Label(card, text=f"[{count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
+        
+        if title == "Categories":
+            card.config(cursor="hand2")
+            card.bind("<Button-1>", lambda e: open_categories())
+        elif title == "Books":
+            card.config(cursor="hand2")
+            card.bind("<Button-1>", lambda e: open_books())
+        elif title == "Authors":
+            card.config(cursor="hand2")
+            card.bind("<Button-1>", lambda e: open_authors())
+    
+    tk.Label(card, text=title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
+    tk.Label(card, text=f"[{count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
     
     tk.Label(content, text="USERS MANAGEMENT", font=FONT_TITLE, bg=BG_MAIN, fg=TEXT_DARK).pack(anchor="w", pady=(20, 5), padx=20)
     

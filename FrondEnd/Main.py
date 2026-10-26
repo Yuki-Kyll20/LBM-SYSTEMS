@@ -3,7 +3,24 @@ from tkinter import messagebox
 import mysql.connector
 import sys
 import os
+import re
 from datetime import datetime
+
+# ========== PASSWORD VALIDATION ==========
+def validate_password(password):
+    """
+    Rules:
+    - At least 8 characters long
+    - Only letters (a-z, A-Z) and numbers (0-9)
+    - NO special characters allowed
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long!"
+    
+    if not re.fullmatch(r'[A-Za-z0-9]+', password):
+        return False, "Password can only contain letters and numbers!\nNo special characters allowed."
+    
+    return True, "Valid"
 
 # ========== DATABASE CONNECTOR ==========
 def get_db_connection():
@@ -20,7 +37,7 @@ def get_db_connection():
         messagebox.showerror("Database Error",
             f"Cannot connect to MySQL:\n{err}\n\nMake sure XAMPP MySQL is running!")
         return None
-
+    
 # ========== WINDOW SETUP ==========
 root = tk.Tk()
 root.title("Book Library Management System")
@@ -81,8 +98,7 @@ def back_to_login():
         icon="question"
     )
     if confirm:
-        set_user_status("Offline")  # Mark Offline on logout
-        # Reset ONLY on logout — not anywhere else
+        set_user_status("Offline")
         current_user["username"] = None
         current_user["user_id"] = None
         current_user["role"] = None
@@ -91,7 +107,6 @@ def back_to_login():
         clear_all()
         show_login()
 
-# ========== EXIT CONFIRMATION ==========
 def show_exit():
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
@@ -110,7 +125,7 @@ def show_exit():
               relief="solid", borderwidth=1, command=lambda: [set_user_status("Offline"), root.quit()]).grid(row=0, column=0, padx=12)
     tk.Button(btn_frame, text="NO", bg=BTN_RED, fg="white", width=10,
               relief="solid", borderwidth=1, command=show_login).grid(row=0, column=1, padx=12)
-
+    
 # ========== FORGOT PASSWORD ==========
 def show_forgot_password():
     clear_all()
@@ -146,6 +161,11 @@ def show_forgot_password():
             return
         if new_pass != conf_pass:
             messagebox.showerror("Error", "Passwords do not match!")
+            return
+
+        is_valid, msg = validate_password(new_pass)
+        if not is_valid:
+            messagebox.showerror("Invalid Password", msg)
             return
         
         conn = get_db_connection()
@@ -191,6 +211,8 @@ def show_signup():
     e_email = tk.Entry(box, width=45); e_email.pack(pady=3)
     
     tk.Label(box, text="Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
+    tk.Label(box, text="(8+ characters, letters & numbers only)", 
+             font=("Arial", 9), bg=BG_CONTENT, fg="#666", anchor="w").pack(fill="x")
     e_pass = tk.Entry(box, width=45, show="*"); e_pass.pack(pady=3)
     
     tk.Label(box, text="Security Answer: Favorite Book", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
@@ -205,15 +227,20 @@ def show_signup():
         if not all([user, pwd]):
             messagebox.showwarning("Warning", "Username and Password required!")
             return
+
+        is_valid, msg = validate_password(pwd)
+        if not is_valid:
+            messagebox.showerror("Invalid Password", msg)
+            return
         
         conn = get_db_connection()
         if not conn: return
         try:
             cur = conn.cursor()
             cur.execute("""
-                INSERT INTO User (Username, Email, Password, Security_Answer, User_Role, Status)
-                VALUES (%s, %s, %s, %s, 'User', 'Offline')
-            """, (user, email if email else None, pwd, ans))
+                INSERT INTO User (Username, Email, Password, Security_Question, Security_Answer, User_Role, Status)
+    VALUES (%s, %s, %s, 'What is your favorite book?', %s, 'User', 'Offline')
+""", (user, email if email else None, pwd, ans))
             conn.commit()
             messagebox.showinfo("Account Created", "Account created successfully!\nPlease Login.")
             show_login()
@@ -273,25 +300,42 @@ def open_authors():
             f"Looking in: {main_dir}\n\nCheck:\n• Authors.py is in this folder\n• Filename: Authors.py"
         )
 
+# ========== OPEN CATEGORIES ==========
+def open_categories():
+    main_dir = os.path.dirname(os.path.abspath(__file__))
+    if main_dir not in sys.path:
+        sys.path.insert(0, main_dir)
+    
+    try:
+        if current_user["is_admin"]:
+            import Category
+            Category.show_categories_screen()
+        else:
+            messagebox.showinfo(
+                "Coming Soon",
+                "User Categories List is being set up.\n\nAdmin Categories List is ready now!"
+            )
+    except ModuleNotFoundError:
+        messagebox.showerror(
+            "File Missing",
+            f"Looking in: {main_dir}\n\nCheck:\n• Category.py is in this folder\n• Filename: Category.py"
+        )
+
 # ========== NAVIGATION DASHBOARD ==========
 def show_navigation_dashboard():
     clear_all()
-    root.configure(bg=BG_MAIN)
-    
-    # --- TOP HEADER — Matches Your Design ---
+
     top_header = tk.Frame(root, bg=BG_CONTENT, height=60, relief="solid", borderwidth=1)
     top_header.pack(side="top", fill="x")
     top_header.pack_propagate(False)
     
     tk.Label(top_header, text="NAVIGATION DASHBOARD",
              font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
-    
-    # Search Bar — Top Right
+
     search_entry = tk.Entry(top_header, width=35, font=FONT)
     search_entry.pack(side="right", padx=10, pady=12)
     tk.Label(top_header, text="SEARCH:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="right", pady=12)
-    
-    # Notification Bell
+
     def open_notifications():
         if current_user["is_admin"]:
             from AdminDB import show_notifications
@@ -302,13 +346,11 @@ def show_navigation_dashboard():
     
     tk.Button(top_header, text="🔔", font=16, bg=BG_CONTENT, fg=TEXT_DARK,
               relief="flat", command=open_notifications).pack(side="right", padx=5)
-    
-    # --- SIDEBAR ---
+
     sidebar = tk.Frame(root, bg=BG_SIDEBAR, width=200, relief="solid", borderwidth=1)
     sidebar.pack(side="left", fill="y")
     sidebar.pack_propagate(False)
-    
-    # Go Back — SAFE: reads ONLY, never changes role
+
     def go_home():
         if current_user["is_admin"]:
             from AdminDB import show_admin_dashboard
@@ -322,7 +364,7 @@ def show_navigation_dashboard():
         ("Navigations", show_navigation_dashboard),
         ("Books", open_books),
         ("Authors", open_authors),
-        ("Categories", lambda: messagebox.showinfo("Categories", "Categories screen")),
+        ("Categories", open_categories),
         ("Reading Records", lambda: messagebox.showinfo("Reading Records", "Reading Records screen")),
         ("My Collection", lambda: messagebox.showinfo("My Collection", "My Collection screen")),
         ("Account", lambda: messagebox.showinfo("Account", "Account screen")),
@@ -341,8 +383,7 @@ def show_navigation_dashboard():
     tk.Button(sidebar, text="Logout", font=FONT, bg=BTN_RED, fg="white",
               relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
               command=back_to_login).pack(pady=5, side="bottom")
-    
-    # --- MAIN CONTENT AREA ---
+
     content = tk.Frame(root, bg=BG_MAIN)
     content.pack(side="right", fill="both", expand=True)
     
@@ -353,8 +394,7 @@ def show_navigation_dashboard():
              bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(60, 10))
     tk.Label(main_content, text="(Tables / Lists / Forms)", font=FONT,
              bg=BG_CONTENT, fg="#555").pack()
-    
-    # --- FOOTER STATUS BAR — Active/Offline ---
+
     conn = get_db_connection()
     book_count = user_count = 0
     if conn:
@@ -369,7 +409,7 @@ def show_navigation_dashboard():
     
     status_color = "#22c55e" if current_user["status"] == "Active" else "#ef4444"
     status_text = f"Status: "
-    status_label_text = f"Active | Total Books: {book_count} | Users: {user_count}"
+    status_label_text = f"{current_user['status']} | Total Books: {book_count} | Users: {user_count}"
     
     status_frame = tk.Frame(content, bg=BG_CONTENT, padx=15, pady=8, relief="solid", borderwidth=1)
     status_frame.pack(fill="x", padx=10, pady=(0, 10))
@@ -427,15 +467,13 @@ def show_login():
             if result:
                 user_id, role = result
                 is_admin = (role == "Admin")
-                
-                # SET USER — ONLY HERE!
+
                 current_user["username"] = user
                 current_user["user_id"] = user_id
                 current_user["role"] = role
                 current_user["is_admin"] = is_admin
                 current_user["status"] = "Active"
-                
-                # Mark Active in Database
+
                 set_user_status("Active")
                 
                 clear_all()
@@ -468,6 +506,5 @@ def show_login():
     lbl_forgot.grid(row=1, column=0, columnspan=2, pady=(10, 0))
     lbl_forgot.bind("<Button-1>", lambda e: show_forgot_password())
 
-# ========== START APP ==========
 show_login()
 root.mainloop()
