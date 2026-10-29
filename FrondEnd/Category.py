@@ -23,7 +23,7 @@ selected_category_index = -1
 editing_category_id = None
 
 # ==================================================
-# SCREEN 1: CATEGORIES LIST
+# CATEGORIES LIST
 # ==================================================
 def show_categories_screen():
     global selected_category_index, categories_data
@@ -32,77 +32,129 @@ def show_categories_screen():
     frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
     frame.pack(fill="both", expand=True)
 
+    # ========= TOP BAR =========
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
     top_bar.pack(fill="x")
     
     tk.Label(top_bar, text="CATEGORIES LIST", 
              font=FONT_HEADING, bg=BG_CARD, fg=TEXT_DARK).pack(side="left")
     
-    tk.Button(top_bar, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              relief="solid", borderwidth=1, command=go_back).pack(side="right", padx=5)
+    tk.Button(top_bar, text="DELETE", bg=BTN_RED, fg="white", width=10, font=FONT,
+              relief="solid", borderwidth=1, command=delete_selected_category).pack(side="right", padx=3)
+    tk.Button(top_bar, text="EDIT", bg=BTN_BROWN, fg="white", width=10, font=FONT,
+              relief="solid", borderwidth=1, command=show_edit_category_form).pack(side="right", padx=3)
+    tk.Button(top_bar, text="VIEW", bg=BTN_YELLOW, fg="#000", width=10, font=FONT,
+              relief="solid", borderwidth=1, command=view_selected_category).pack(side="right", padx=3)
     tk.Button(top_bar, text="+ Add Category", bg=BTN_GREEN, fg=TEXT_DARK, width=14,
               relief="solid", borderwidth=1, command=show_add_category_form).pack(side="right", padx=5)
+    tk.Button(top_bar, text="BACK", bg=BTN_BROWN, fg="white", width=10,
+              relief="solid", borderwidth=1, command=go_back).pack(side="right", padx=5)
 
+    # Search
     search_frame = tk.Frame(frame, bg=BG_CONTENT, padx=15, pady=8, relief="solid", borderwidth=1)
     search_frame.pack(fill="x", padx=15, pady=(10, 5))
     
     tk.Label(search_frame, text="Search:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=(0, 10))
     search_entry = tk.Entry(search_frame, width=40, font=FONT)
     search_entry.pack(side="left")
+    search_entry.bind("<KeyRelease>", lambda e: filter_categories(search_entry.get()))
 
-    list_frame = tk.Frame(frame, bg=BG_CARD, padx=15, pady=15, relief="solid", borderwidth=1)
-    list_frame.pack(fill="both", expand=True, padx=15, pady=5)
+    # ========= SCROLLABLE LIST =========
+    list_container = tk.Frame(frame, bg=BG_CARD, padx=15, pady=15, relief="solid", borderwidth=1)
+    list_container.pack(fill="both", expand=True, padx=15, pady=5)
+
+    canvas = tk.Canvas(list_container, bg=BG_CARD, highlightthickness=0)
+    scrollbar = tk.Scrollbar(list_container, orient="vertical", command=canvas.yview)
+    rows_container = tk.Frame(canvas, bg=BG_CARD)
     
-    header = tk.Frame(list_frame, bg="#d4b86a", padx=5, pady=8)
+    rows_container.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+    
+    canvas.create_window((0, 0), window=rows_container, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # HEADER
+    header = tk.Frame(rows_container, bg="#d4b86a", padx=5, pady=10)
     header.pack(fill="x")
     
-    cols = [("ID", 5), ("CATEGORY NAME", 30), ("BOOKS IN CATEGORY", 20)]
-    for col_name, width in cols:
-        tk.Label(header, text=col_name, font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
-                 width=width, anchor="w").pack(side="left", padx=2)
+    # ID = left, Category Name = left, Books = RIGHT-ALIGNED ✅
+    tk.Label(header, text="ID", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
+             width=6, anchor="w").pack(side="left", padx=5)
+    tk.Label(header, text="CATEGORY NAME", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
+             width=45, anchor="w").pack(side="left", padx=5)
+    tk.Label(header, text="BOOKS IN CATEGORY", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
+             width=18, anchor="e").pack(side="right", padx=10)
     
-    tk.Frame(list_frame, bg="#7B2CBF", height=2).pack(fill="x", pady=8)
+    tk.Frame(rows_container, bg="#7B2CBF", height=2).pack(fill="x", pady=8)
     
     load_categories_from_db()
-    
-    rows_container = tk.Frame(list_frame, bg=BG_CARD)
-    rows_container.pack(fill="both", expand=True)
-    
-    if not categories_data:
-        tk.Label(rows_container, text="No categories found.", font=FONT, bg=BG_CARD, fg=TEXT_DARK).pack(pady=50)
-    else:
-        for idx, cat in enumerate(categories_data):
-            cat_id, name, book_count = cat
-            
-            row = tk.Frame(rows_container, bg=BG_CARD, pady=6, cursor="hand2")
-            row.pack(fill="x")
-            
-            def make_select(i=idx, r=row):
-                def select_this():
-                    global selected_category_index
-                    selected_category_index = i
-                    for w in rows_container.winfo_children():
-                        w.configure(bg=BG_CARD)
-                    r.configure(bg="#e5d9b6")
-                return select_this
-            row.bind("<Button-1>", lambda e, f=make_select(idx): f())
-            
-            tk.Label(row, text=str(cat_id), font=FONT, bg=row.cget("bg"), fg=TEXT_DARK, width=5, anchor="w").pack(side="left", padx=2)
-            tk.Label(row, text=name or "", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK, width=30, anchor="w").pack(side="left", padx=2)
-            tk.Label(row, text=f"{book_count} Books", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK, width=20, anchor="w").pack(side="left", padx=2)
-    
-    list_btn_frame = tk.Frame(list_frame, bg=BG_CARD)
-    list_btn_frame.pack(fill="x", pady=(15, 0))
-    
-    tk.Button(list_btn_frame, text="DELETE", bg=BTN_RED, fg="white", width=12, font=FONT,
-              relief="solid", borderwidth=1, command=delete_selected_category).pack(side="right", padx=5)
-    tk.Button(list_btn_frame, text="EDIT", bg=BTN_BROWN, fg="white", width=12, font=FONT,
-              relief="solid", borderwidth=1, command=show_edit_category_form).pack(side="right", padx=5)
-    tk.Button(list_btn_frame, text="VIEW", bg=BTN_YELLOW, fg="#000", width=12, font=FONT,
-              relief="solid", borderwidth=1, command=view_selected_category).pack(side="right", padx=5)
+    render_categories_list(categories_data, rows_container)
 
 # ==================================================
-# SCREEN 2: ADD / EDIT CATEGORY
+# RENDER LIST
+# ==================================================
+def render_categories_list(data_list, parent_frame=None):
+    global selected_category_index
+    # Clear rows
+    for w in parent_frame.winfo_children():
+        if w.cget("bg") not in ["#d4b86a", "#7B2CBF"]:
+            w.destroy()
+    
+    if not data_list:
+        tk.Label(parent_frame, text="No categories found.", font=FONT, bg=BG_CARD, fg=TEXT_DARK).pack(pady=50)
+        return
+    
+    for idx, cat in enumerate(data_list):
+        cat_id, name, book_count = cat
+        
+        row = tk.Frame(parent_frame, bg=BG_CARD, pady=8, cursor="hand2")
+        row.pack(fill="x")
+        
+        def make_select(i=idx, r=row):
+            def select_this():
+                global selected_category_index
+                selected_category_index = i
+                for w in parent_frame.winfo_children():
+                    if isinstance(w, tk.Frame) and w.cget("cursor") == "hand2":
+                        w.configure(bg=BG_CARD)
+                r.configure(bg="#e5d9b6")
+            return select_this
+        row.bind("<Button-1>", lambda e, f=make_select(idx): f())
+        
+        # ID
+        tk.Label(row, text=str(cat_id), font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
+                 width=6, anchor="w").pack(side="left", padx=5)
+        # Category Name
+        tk.Label(row, text=name or "", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
+                 width=45, anchor="w").pack(side="left", padx=5)
+        # Books Count
+        tk.Label(row, text=f"{book_count} Books", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
+                 width=18, anchor="e").pack(side="right", padx=10)
+
+def filter_categories(search_text):
+    search_text = search_text.strip().lower()
+    filtered = categories_data
+    if search_text:
+        filtered = [c for c in categories_data if search_text in str(c[1]).lower()]
+    
+    for w in root.winfo_children():
+        if isinstance(w, tk.Frame) and w.cget("bg") == BG_MAIN:
+            for child in w.winfo_children():
+                if isinstance(child, tk.Frame) and child.cget("bg") == BG_CARD:
+                    for c in child.winfo_children():
+                        if isinstance(c, tk.Canvas):
+                            for win in c.winfo_children():
+                                if isinstance(win, tk.Frame):
+                                    render_categories_list(filtered, win)
+                                    return
+
+# ==================================================
+# ADD / EDIT CATEGORY
 # ==================================================
 def show_add_category_form():
     global editing_category_id
@@ -157,7 +209,7 @@ def show_category_form_screen(category_data=None):
               relief="solid", borderwidth=1, command=show_categories_screen).pack(side="left", padx=10)
 
 # ==================================================
-# SCREEN 3: VIEW CATEGORY
+# VIEW CATEGORY
 # ==================================================
 def view_selected_category():
     global selected_category_index
@@ -193,7 +245,7 @@ def view_selected_category():
     make_view_field("BOOKS IN CATEGORY:", f"{cat[2]} Books")
 
 # ==================================================
-# SCREEN 4: DELETE CATEGORY
+# DELETE CATEGORY
 # ==================================================
 def delete_selected_category():
     global selected_category_index

@@ -23,11 +23,8 @@ authors_data = []
 selected_author_index = -1
 editing_author_id = None
 
-def go_back():
-    show_navigation_dashboard()
-
 # ==================================================
-# SCREEN 1: AUTHORS LIST
+# AUTHORS LIST
 # ==================================================
 def show_authors_screen():
     global selected_author_index, authors_data
@@ -36,79 +33,135 @@ def show_authors_screen():
     frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
     frame.pack(fill="both", expand=True)
     
+    # ========= TOP BAR =========
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
     top_bar.pack(fill="x")
     
     tk.Label(top_bar, text="AUTHORS LIST", 
              font=FONT_HEADING, bg=BG_CARD, fg=TEXT_DARK).pack(side="left")
     
+    tk.Button(top_bar, text="DELETE", bg=BTN_RED, fg="white", width=10, font=FONT,
+              relief="solid", borderwidth=1, command=delete_selected_author).pack(side="right", padx=3)
+    tk.Button(top_bar, text="EDIT", bg=BTN_BROWN, fg="white", width=10, font=FONT,
+              relief="solid", borderwidth=1, command=show_edit_author_form).pack(side="right", padx=3)
+    tk.Button(top_bar, text="VIEW", bg=BTN_YELLOW, fg="#000", width=10, font=FONT,
+              relief="solid", borderwidth=1, command=view_selected_author).pack(side="right", padx=3)
+    tk.Button(top_bar, text="+ Add Author", bg=BTN_GREEN, fg=TEXT_DARK, width=14,
+              relief="solid", borderwidth=1, command=show_add_author_form).pack(side="right", padx=5)
     tk.Button(top_bar, text="BACK", bg=BTN_BROWN, fg="white", width=10,
               relief="solid", borderwidth=1, command=go_back).pack(side="right", padx=5)
-    tk.Button(top_bar, text="+ Add Author", bg=BTN_GREEN, fg=TEXT_DARK, width=12,
-              relief="solid", borderwidth=1, command=show_add_author_form).pack(side="right", padx=5)
-    
+
+    # Search
     search_frame = tk.Frame(frame, bg=BG_CONTENT, padx=15, pady=8, relief="solid", borderwidth=1)
     search_frame.pack(fill="x", padx=15, pady=(10, 5))
     
     tk.Label(search_frame, text="Search:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=(0, 10))
     search_entry = tk.Entry(search_frame, width=40, font=FONT)
     search_entry.pack(side="left")
+    search_entry.bind("<KeyRelease>", lambda e: filter_authors(search_entry.get()))
+
+    # ========= SCROLLABLE LIST =========
+    list_container = tk.Frame(frame, bg=BG_CARD, padx=15, pady=15, relief="solid", borderwidth=1)
+    list_container.pack(fill="both", expand=True, padx=15, pady=5)
     
-    list_frame = tk.Frame(frame, bg=BG_CARD, padx=15, pady=15, relief="solid", borderwidth=1)
-    list_frame.pack(fill="both", expand=True, padx=15, pady=5)
+    canvas = tk.Canvas(list_container, bg=BG_CARD, highlightthickness=0)
+    scrollbar = tk.Scrollbar(list_container, orient="vertical", command=canvas.yview)
+    rows_container = tk.Frame(canvas, bg=BG_CARD)
     
-    header = tk.Frame(list_frame, bg="#d4b86a", padx=5, pady=8)
+    rows_container.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+    
+    canvas.create_window((0, 0), window=rows_container, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+
+    # HEADER 
+    header = tk.Frame(rows_container, bg="#d4b86a", padx=5, pady=10)
     header.pack(fill="x")
     
-    cols = [("ID", 5), ("FULL NAME", 25), ("BIOGRAPHY", 35), ("BOOK COUNT", 12)]
-    for col_name, width in cols:
-        tk.Label(header, text=col_name, font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
-                 width=width, anchor="w").pack(side="left", padx=2)
+    tk.Label(header, text="ID", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
+             width=6, anchor="w").pack(side="left", padx=5)
+    tk.Label(header, text="FULL NAME", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
+             width=25, anchor="w").pack(side="left", padx=5)
+    tk.Label(header, text="BIOGRAPHY", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
+             width=35, anchor="w").pack(side="left", padx=5)
+    tk.Label(header, text="BOOK COUNT", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
+             width=12, anchor="e").pack(side="right", padx=10)
     
-    tk.Frame(list_frame, bg="#7B2CBF", height=2).pack(fill="x", pady=8)
+    tk.Frame(rows_container, bg="#7B2CBF", height=2).pack(fill="x", pady=8)
     
     load_authors_from_db()
-    
-    rows_container = tk.Frame(list_frame, bg=BG_CARD)
-    rows_container.pack(fill="both", expand=True)
-    
-    if not authors_data:
-        tk.Label(rows_container, text="No authors found.", font=FONT, bg=BG_CARD, fg=TEXT_DARK).pack(pady=50)
-    else:
-        for idx, author in enumerate(authors_data):
-            author_id, fullname, bio, book_count = author
-            
-            row = tk.Frame(rows_container, bg=BG_CARD, pady=6, cursor="hand2")
-            row.pack(fill="x")
-            
-            def make_select(i=idx, r=row):
-                def select_this():
-                    global selected_author_index
-                    selected_author_index = i
-                    for w in rows_container.winfo_children():
-                        w.configure(bg=BG_CARD)
-                    r.configure(bg="#e5d9b6")
-                return select_this
-            row.bind("<Button-1>", lambda e, f=make_select(idx): f())
-            
-            tk.Label(row, text=str(author_id), font=FONT, bg=row.cget("bg"), fg=TEXT_DARK, width=5, anchor="w").pack(side="left", padx=2)
-            tk.Label(row, text=fullname or "", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK, width=25, anchor="w").pack(side="left", padx=2)
-            bio_short = (bio[:30] + "...") if bio and len(bio) > 30 else (bio or "")
-            tk.Label(row, text=bio_short, font=FONT, bg=row.cget("bg"), fg=TEXT_DARK, width=35, anchor="w").pack(side="left", padx=2)
-            tk.Label(row, text=str(book_count), font=FONT, bg=row.cget("bg"), fg=TEXT_DARK, width=12, anchor="w").pack(side="left", padx=2)
-    
-    list_btn_frame = tk.Frame(list_frame, bg=BG_CARD)
-    list_btn_frame.pack(fill="x", pady=(15, 0))
-    
-    tk.Button(list_btn_frame, text="DELETE", bg=BTN_RED, fg="white", width=12, font=FONT,
-              relief="solid", borderwidth=1, command=delete_selected_author).pack(side="right", padx=5)
-    tk.Button(list_btn_frame, text="EDIT", bg=BTN_BROWN, fg="white", width=12, font=FONT,
-              relief="solid", borderwidth=1, command=show_edit_author_form).pack(side="right", padx=5)
-    tk.Button(list_btn_frame, text="VIEW", bg=BTN_YELLOW, fg="#000", width=12, font=FONT,
-              relief="solid", borderwidth=1, command=view_selected_author).pack(side="right", padx=5)
+    render_authors_list(authors_data, rows_container)
 
 # ==================================================
-# SCREEN 2: ADD / EDIT AUTHOR FORM
+# RENDER LIST
+# ==================================================
+def render_authors_list(data_list, parent_frame=None):
+    global selected_author_index
+    # Clear rows
+    for w in parent_frame.winfo_children():
+        if w.cget("bg") not in ["#d4b86a", "#7B2CBF"]:
+            w.destroy()
+    
+    if not data_list:
+        tk.Label(parent_frame, text="No authors found.", font=FONT, bg=BG_CARD, fg=TEXT_DARK).pack(pady=50)
+        return
+    
+    for idx, author in enumerate(data_list):
+        author_id, fullname, bio, book_count = author
+        
+        row = tk.Frame(parent_frame, bg=BG_CARD, pady=8, cursor="hand2")
+        row.pack(fill="x")
+        
+        def make_select(i=idx, r=row):
+            def select_this():
+                global selected_author_index
+                selected_author_index = i
+                for w in parent_frame.winfo_children():
+                    if isinstance(w, tk.Frame) and w.cget("cursor") == "hand2":
+                        w.configure(bg=BG_CARD)
+                r.configure(bg="#e5d9b6")
+            return select_this
+        row.bind("<Button-1>", lambda e, f=make_select(idx): f())
+
+        # ID
+        tk.Label(row, text=str(author_id), font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
+                 width=6, anchor="w").pack(side="left", padx=5)
+        # Full Name
+        tk.Label(row, text=fullname or "", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
+                 width=25, anchor="w").pack(side="left", padx=5)
+        # Biography
+        bio_short = (bio[:30] + "...") if bio and len(bio) > 30 else (bio or "")
+        tk.Label(row, text=bio_short, font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
+                 width=35, anchor="w").pack(side="left", padx=5)
+        # Book Count
+        tk.Label(row, text=f"{book_count} Books", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
+                 width=12, anchor="e").pack(side="right", padx=10)
+
+def filter_authors(search_text):
+    search_text = search_text.strip().lower()
+    filtered = authors_data
+    if search_text:
+        filtered = [a for a in authors_data if search_text in str(a[1]).lower()]
+    
+    for w in root.winfo_children():
+        if isinstance(w, tk.Frame) and w.cget("bg") == BG_MAIN:
+            for child in w.winfo_children():
+                if isinstance(child, tk.Frame) and child.cget("bg") == BG_CARD:
+                    for c in child.winfo_children():
+                        if isinstance(c, tk.Canvas):
+                            for win in c.winfo_children():
+                                if isinstance(win, tk.Frame):
+                                    render_authors_list(filtered, win)
+                                    return
+
+# ==================================================
+# ADD / EDIT AUTHOR
 # ==================================================
 def show_add_author_form():
     global editing_author_id
@@ -179,9 +232,9 @@ def show_author_form_screen(author_data=None):
               relief="solid", borderwidth=1, command=lambda: save_author(form_entries)).pack(side="left", padx=10)
     tk.Button(btn_frame, text="CANCEL", bg=BTN_RED, fg="white", width=12, font=FONT,
               relief="solid", borderwidth=1, command=show_authors_screen).pack(side="left", padx=10)
-
+    
 # ==================================================
-# SCREEN 3: VIEW AUTHOR
+# VIEW AUTHOR
 # ==================================================
 def view_selected_author():
     global selected_author_index
@@ -208,7 +261,7 @@ def view_selected_author():
     profile_frame.pack(anchor="w", pady=(0, 15))
     tk.Label(profile_frame, text="PROFILE\nPICTURE", font=FONT, bg="#e5d9b6", fg=TEXT_DARK,
              width=12, height=4, relief="solid", borderwidth=1).pack()
-    
+     
     def make_view_field(label_text, value):
         tk.Label(view_container, text=label_text, font=FONT, bg=BG_CARD, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 2))
         entry = tk.Entry(view_container, font=FONT, width=40)
@@ -219,10 +272,10 @@ def view_selected_author():
     make_view_field("ID:", str(author[0]))
     make_view_field("FULL NAME:", author[1] or "")
     make_view_field("BIOGRAPHY:", author[2] or "")
-    make_view_field("BOOK COUNT:", str(author[3]))
+    make_view_field("BOOK COUNT:", f"{author[3]} Books")
 
 # ==================================================
-# SCREEN 4: DELETE AUTHOR
+# DELETE AUTHOR
 # ==================================================
 def delete_selected_author():
     global selected_author_index
@@ -264,7 +317,7 @@ def delete_selected_author():
               relief="solid", borderwidth=1, command=confirm_delete).pack(side="left", padx=15)
     tk.Button(btn_frame, text="NO", bg=BTN_RED, fg="white", width=10, font=FONT,
               relief="solid", borderwidth=1, command=show_authors_screen).pack(side="left", padx=15)
-
+    
 # ==================================================
 # DATABASE FUNCTIONS
 # ==================================================

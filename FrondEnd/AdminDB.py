@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 import Main
-from Main import set_user_status, current_user
+from Main import set_user_status
+
 # ========== SHORTCUTS ==========
 root = Main.root
 clear_all = Main.clear_all
@@ -24,7 +25,7 @@ FONT_TITLE = Main.FONT_TITLE
 FONT_HEADING = Main.FONT_HEADING
 
 # ==================================================
-# ADMIN DASHBOARD — Screens
+# ADMIN DASHBOARD
 # ==================================================
 def show_overdue_detail():
     clear_all()
@@ -177,8 +178,8 @@ def show_add_user():
     e_security = tk.Entry(form_container, width=45, font=FONT)
     e_security.pack(pady=(0, 20))
     entries["Security Answer"] = e_security
-    # --- CREATE ACCOUNT ---
 
+    # --- CREATE ACCOUNT ---
     def create_account():
         username = entries["Username"].get().strip()
         email = entries["Email"].get().strip()
@@ -512,14 +513,27 @@ def show_admin_dashboard():
         except ModuleNotFoundError:
             messagebox.showerror("Error", 
                 "Category.py not found!\nCheck:\n• File exists: Category.py\n• Same folder as AdminDB.py")
-    
+
+        
+    def open_reading_records():
+        if Main.current_user.get("role") != "Admin":
+            messagebox.showwarning("Access Denied", "Only Admin can access Reading Records!")
+            return
+    # still fixings
+        import sys, os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+        import ReadingRecords
+        ReadingRecords.show_reading_records_screen()
+
     nav_items = [
         ("Home", show_admin_dashboard),
         ("Navigations", show_navigation_dashboard),
         ("Books", open_books),
         ("Authors", open_authors),
         ("Categories", open_categories),
-        ("Reading Records", lambda: messagebox.showinfo("Records", "Reading Records screen")),
+        ("Reading Records", open_reading_records),
         ("My Collection", lambda: messagebox.showinfo("Collection", "My Collection screen")),
         ("Account", lambda: messagebox.showinfo("Account", "Account screen")),
         ("Settings", lambda: messagebox.showinfo("Settings", "Settings screen")),
@@ -578,9 +592,12 @@ def show_admin_dashboard():
         elif title == "Authors":
             card.config(cursor="hand2")
             card.bind("<Button-1>", lambda e: open_authors())
+        elif title == "Records":
+            card.config(cursor="hand2")
+            card.bind("<Button-1>", lambda e: open_reading_records())
     
-    tk.Label(card, text=title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
-    tk.Label(card, text=f"[{count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
+        tk.Label(card, text=title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
+        tk.Label(card, text=f"[{count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
     
     tk.Label(content, text="USERS MANAGEMENT", font=FONT_TITLE, bg=BG_MAIN, fg=TEXT_DARK).pack(anchor="w", pady=(20, 5), padx=20)
     

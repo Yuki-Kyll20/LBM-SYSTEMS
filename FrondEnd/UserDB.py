@@ -191,6 +191,17 @@ def show_user_dashboard():
     root.configure(bg=BG_MAIN)
     
     username = Main.current_user["username"] if Main.current_user else "User"
+
+def open_user_books():
+    import sys, os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    try:
+        import user_books
+        user_books.show_user_books_screen()
+    except ModuleNotFoundError:
+        messagebox.showerror("Error", "user_books.py not found!\nCheck filename and folder.")
     
     # ========= TOP HEADER =========
     top_header = tk.Frame(root, bg=BG_CONTENT, height=60, relief="solid", borderwidth=1)

@@ -321,6 +321,27 @@ def open_categories():
             f"Looking in: {main_dir}\n\nCheck:\n• Category.py is in this folder\n• Filename: Category.py"
         )
 
+# ========== OPEN READING RECORDS ==========
+def open_reading_records():
+    main_dir = os.path.dirname(os.path.abspath(__file__))
+    if main_dir not in sys.path:
+        sys.path.insert(0, main_dir)
+    
+    try:
+        if current_user["is_admin"]:
+            import ReadingRecords
+            ReadingRecords.show_reading_records_screen()
+        else:
+            messagebox.showinfo(
+                "Coming Soon",
+                "User Reading Records is being set up.\n\nAdmin Reading Records is ready now!"
+            )
+    except ModuleNotFoundError:
+        messagebox.showerror(
+            "File Missing",
+            f"Looking in: {main_dir}\n\nCheck:\n• ReadingRecords.py is in this folder\n• Filename: ReadingRecords.py"
+        )
+
 # ========== NAVIGATION DASHBOARD ==========
 def show_navigation_dashboard():
     clear_all()
@@ -365,7 +386,7 @@ def show_navigation_dashboard():
         ("Books", open_books),
         ("Authors", open_authors),
         ("Categories", open_categories),
-        ("Reading Records", lambda: messagebox.showinfo("Reading Records", "Reading Records screen")),
+        ("Reading Records", open_reading_records),
         ("My Collection", lambda: messagebox.showinfo("My Collection", "My Collection screen")),
         ("Account", lambda: messagebox.showinfo("Account", "Account screen")),
         ("Settings", lambda: messagebox.showinfo("Settings", "Settings screen")),
