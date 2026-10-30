@@ -30,7 +30,7 @@ def show_authors_screen():
     global selected_author_index, authors_data
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     # ========= TOP BAR =========
@@ -180,7 +180,7 @@ def show_edit_author_form():
 def show_author_form_screen(author_data=None):
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
@@ -245,7 +245,7 @@ def view_selected_author():
     
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
@@ -285,7 +285,7 @@ def delete_selected_author():
     
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     delete_container = tk.Frame(frame, bg=BG_CARD, padx=40, pady=30, relief="solid", borderwidth=2)

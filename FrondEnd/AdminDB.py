@@ -29,11 +29,11 @@ FONT_HEADING = Main.FONT_HEADING
 # ==================================================
 def show_overdue_detail():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_notifications).place(x=1130, y=15)
+              command=show_notifications).place(x=1325, y=15)
     
     box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30, relief="solid", borderwidth=1)
     box.place(relx=0.5, rely=0.5, anchor="center")
@@ -76,11 +76,11 @@ def show_overdue_detail():
 
 def show_notifications():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_admin_dashboard).place(x=1130, y=15)
+              command=show_admin_dashboard).place(x=1325, y=15)
     
     box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30, relief="solid", borderwidth=1)
     box.place(relx=0.5, rely=0.5, anchor="center")
@@ -126,7 +126,7 @@ def show_notifications():
 
 def show_add_user():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
 
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
@@ -228,11 +228,11 @@ def show_add_user():
 
 def show_all_users():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
 
     tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              relief="solid", borderwidth=1, command=show_admin_dashboard).place(x=1130, y=15)
+              relief="solid", borderwidth=1, command=show_admin_dashboard).place(x=1325, y=15)
 
     box = tk.Frame(frame, bg="#FFF3D0", padx=30, pady=25, relief="solid", borderwidth=2)
     box.place(relx=0.5, rely=0.5, anchor="center")
@@ -288,11 +288,11 @@ def show_all_users():
         
 def show_user_detail(username):
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_admin_dashboard).place(x=1130, y=15)
+              command=show_admin_dashboard).place(x=1325, y=15)
     
     outer_box = tk.Frame(frame, bg="#7B2CBF", padx=3, pady=3)
     outer_box.place(relx=0.5, rely=0.5, anchor="center")
@@ -337,11 +337,11 @@ def show_user_detail(username):
 
 def show_edit_user(username):
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_admin_dashboard).place(x=1130, y=15)
+              command=show_admin_dashboard).place(x=1325, y=15)
     
     box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30, relief="solid", borderwidth=1)
     box.place(relx=0.5, rely=0.5, anchor="center")
@@ -421,11 +421,11 @@ def show_edit_user(username):
 
 def show_delete_confirm(username):
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_admin_dashboard).place(x=1130, y=15)
+              command=show_admin_dashboard).place(x=1325, y=15)
     
     box = tk.Frame(frame, bg=BG_CONTENT, padx=60, pady=40, relief="solid", borderwidth=1)
     box.place(relx=0.5, rely=0.5, anchor="center")

@@ -41,7 +41,7 @@ def get_db_connection():
 # ========== WINDOW SETUP ==========
 root = tk.Tk()
 root.title("Book Library Management System")
-root.geometry("1280x720")
+root.geometry("1440x900")
 root.resizable(False, False)
 
 # ========== COLORS & STYLES ==========
@@ -109,7 +109,7 @@ def back_to_login():
 
 def show_exit():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     box = tk.Frame(frame, bg=BG_CONTENT, padx=50, pady=35)
@@ -129,7 +129,7 @@ def show_exit():
 # ========== FORGOT PASSWORD ==========
 def show_forgot_password():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30)
@@ -197,7 +197,7 @@ def show_forgot_password():
 # ========== CREATE ACCOUNT / SIGNUP ==========
 def show_signup():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30)
     box.place(relx=0.5, rely=0.5, anchor="center")
@@ -443,11 +443,11 @@ def show_navigation_dashboard():
 # ========== LOGIN ==========
 def show_login():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     tk.Button(frame, text="EXIT", bg=BTN_RED, fg="white", width=8,
-              relief="solid", borderwidth=1, command=show_exit).place(x=1165, y=15)
+              relief="solid", borderwidth=1, command=show_exit).place(x=1325, y=15)
     
     tk.Label(frame, text="BOOK LIBRARY MANAGEMENT SYSTEM",
              font=("Arial", 18, "bold"), bg=BG_MAIN, fg=TEXT_DARK).pack(pady=(50, 35))

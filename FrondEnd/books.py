@@ -4,7 +4,7 @@ from tkinter import messagebox, ttk
 import Main
 
 # ========== SHORTCUTS ==========
-root = Main.root
+root = (Main.root)
 clear_all = Main.clear_all
 get_db_connection = Main.get_db_connection
 BG_MAIN = Main.BG_MAIN
@@ -30,7 +30,7 @@ def show_books_screen():
     global selected_book_index, books_data
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
 
     # ========= TOP BAR =========
@@ -82,22 +82,19 @@ def show_books_screen():
     # HEADER
     header = tk.Frame(rows_container, bg="#d4b86a", padx=5, pady=10)
     header.pack(fill="x")
-    
-    header = tk.Frame(rows_container, bg="#d4b86a", padx=5, pady=10)
-    header.pack(fill="x")
 
     tk.Label(header, text="ID", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
-         width=4, anchor="w").pack(side="left", padx=3)
+         width=5, anchor="w").pack(side="left", padx=3)
     tk.Label(header, text="BOOK TITLE", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
-         width=22, anchor="w").pack(side="left", padx=3)
+         width=20, anchor="w").pack(side="left", padx=3)
     tk.Label(header, text="PUBLISHER", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
-         width=18, anchor="w").pack(side="left", padx=3)
+         width=16, anchor="w").pack(side="left", padx=3)
     tk.Label(header, text="YEAR", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
          width=8, anchor="center").pack(side="left", padx=3)
     tk.Label(header, text="ISBN", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
-         width=14, anchor="w").pack(side="left", padx=3)
+         width=20, anchor="w").pack(side="left", padx=3)
     tk.Label(header, text="DESCRIPTION", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
-         width=16, anchor="w").pack(side="left", padx=3)
+         width=22, anchor="w").pack(side="left", padx=3)
     tk.Label(header, text="STATUS", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
          width=10, anchor="e").pack(side="right", padx=5)
     
@@ -142,23 +139,23 @@ def render_books_list(data_list, parent_frame=None):
         
         # ID
         tk.Label(row, text=str(book_id), font=FONT, bg=BG_CARD, fg=TEXT_DARK,
-                 width=4, anchor="w").pack(side="left", padx=3)
+                 width=5, anchor="w").pack(side="left", padx=3)
         # BOOK TITLE
         tk.Label(row, text=title or "", font=FONT, bg=BG_CARD, fg=TEXT_DARK,
-                 width=22, anchor="w").pack(side="left", padx=3)
+                 width=20, anchor="w").pack(side="left", padx=3)
         # PUBLISHER
         tk.Label(row, text=publisher or "", font=FONT, bg=BG_CARD, fg=TEXT_DARK,
-                 width=18, anchor="w").pack(side="left", padx=3)
+                 width=16, anchor="w").pack(side="left", padx=3)
         # YEAR
         tk.Label(row, text=str(year) if year else "", font=FONT, bg=BG_CARD, fg=TEXT_DARK,
-                 width=8, anchor="center").pack(side="left", padx=3)
+                 width=8, anchor="w").pack(side="left", padx=3)
         # ISBN
         tk.Label(row, text=isbn or "", font=FONT, bg=BG_CARD, fg=TEXT_DARK,
-                 width=14, anchor="w").pack(side="left", padx=3)
+                 width=20, anchor="w").pack(side="left", padx=3)
         # DESCRIPTION
-        tk.Label(row, text=(description[:15] + "...") if description and len(description) > 15 else (description or ""), 
+        tk.Label(row, text=(description[:22] + "...") if description and len(description) > 22 else (description or ""), 
                  font=FONT, bg=BG_CARD, fg=TEXT_DARK,
-                 width=16, anchor="w").pack(side="left", padx=3)
+                 width=22, anchor="w").pack(side="left", padx=3)
         # STATUS
         status_color = "#22c55e" if status.upper() == "ACTIVE" else "#ef4444"
         tk.Label(row, text=status.upper(), font=FONT, bg=BG_CARD, fg=status_color,
@@ -201,7 +198,7 @@ def show_edit_book_form():
 def show_book_form_screen(book_data=None):
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
@@ -298,7 +295,7 @@ def view_selected_book():
     
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
@@ -345,7 +342,7 @@ def delete_selected_book():
     
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     delete_container = tk.Frame(frame, bg=BG_CARD, padx=40, pady=30, relief="solid", borderwidth=1)

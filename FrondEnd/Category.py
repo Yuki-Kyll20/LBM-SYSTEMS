@@ -29,7 +29,7 @@ def show_categories_screen():
     global selected_category_index, categories_data
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
 
     # ========= TOP BAR =========
@@ -82,7 +82,6 @@ def show_categories_screen():
     header = tk.Frame(rows_container, bg="#d4b86a", padx=5, pady=10)
     header.pack(fill="x")
     
-    # ID = left, Category Name = left, Books = RIGHT-ALIGNED ✅
     tk.Label(header, text="ID", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
              width=6, anchor="w").pack(side="left", padx=5)
     tk.Label(header, text="CATEGORY NAME", font=FONT_TITLE, bg="#d4b86a", fg=TEXT_DARK,
@@ -173,7 +172,7 @@ def show_edit_category_form():
 def show_category_form_screen(category_data=None):
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
@@ -220,7 +219,7 @@ def view_selected_category():
     
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     top_bar = tk.Frame(frame, bg=BG_CARD, padx=15, pady=10)
@@ -255,7 +254,7 @@ def delete_selected_category():
     
     clear_all()
     
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
+    frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
     delete_container = tk.Frame(frame, bg=BG_CARD, padx=40, pady=30, relief="solid", borderwidth=1)
