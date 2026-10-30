@@ -22,6 +22,33 @@ def validate_password(password):
     
     return True, "Valid"
 
+# ========== PASSWORD SHOW/HIDE TOGGLE ==========
+def create_password_field(parent, label_text, width=45):
+    """Create password entry with eye button to show/hide text"""
+    if label_text:
+        tk.Label(parent, text=label_text, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
+    
+    row = tk.Frame(parent, bg=BG_CONTENT)
+    row.pack(fill="x", pady=3)
+    
+    entry = tk.Entry(row, width=width, show="*", font=FONT)
+    entry.pack(side="left", fill="x", expand=True)
+    
+    def toggle():
+        if entry.cget("show") == "*":
+            entry.config(show="")
+            eye_btn.config(text="🙈")
+        else:
+            entry.config(show="*")
+            eye_btn.config(text="👁")
+    
+    eye_btn = tk.Button(row, text="👁", command=toggle,
+                        bg=BG_CONTENT, relief="flat", cursor="hand2",
+                        font=("Arial", 12), padx=5)
+    eye_btn.pack(side="right")
+    
+    return entry
+
 # ========== DATABASE CONNECTOR ==========
 def get_db_connection():
     try:
@@ -144,11 +171,8 @@ def show_forgot_password():
              font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
     e_answer = tk.Entry(box, width=45); e_answer.pack(pady=3)
     
-    tk.Label(box, text="New Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
-    e_new = tk.Entry(box, width=45, show="*"); e_new.pack(pady=3)
-    
-    tk.Label(box, text="Confirm Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
-    e_conf = tk.Entry(box, width=45, show="*"); e_conf.pack(pady=3)
+    e_new = create_password_field(box, "New Password:", width=40)
+    e_conf = create_password_field(box, "Confirm Password:", width=40)
     
     def reset_pass():
         user = e_user.get().strip()
@@ -213,7 +237,7 @@ def show_signup():
     tk.Label(box, text="Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
     tk.Label(box, text="(8+ characters, letters & numbers only)", 
              font=("Arial", 9), bg=BG_CONTENT, fg="#666", anchor="w").pack(fill="x")
-    e_pass = tk.Entry(box, width=45, show="*"); e_pass.pack(pady=3)
+    e_pass = create_password_field(box, "", width=40)
     
     tk.Label(box, text="Security Answer: Favorite Book", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
     e_ans = tk.Entry(box, width=45); e_ans.pack(pady=3)
@@ -464,10 +488,8 @@ def show_login():
     tk.Label(box, text="Email:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
     e_email = tk.Entry(box, width=35)
     e_email.pack(pady=(3, 10))
-    
-    tk.Label(box, text="Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_pass = tk.Entry(box, width=35, show="*")
-    e_pass.pack(pady=(3, 15))
+
+    e_pass = create_password_field(box, "Password:", width=32)
     
     def do_login():
         global current_user

@@ -239,7 +239,27 @@ def show_all_users():
 
     tk.Label(box, text="VIEW ALL USERS", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK).pack(anchor="w", pady=(0, 15))
 
-    header = tk.Frame(box, bg="#FFF3D0")
+    # SCROLLABLE
+    table_wrapper = tk.Frame(box, bg="#FFF3D0")
+    table_wrapper.pack(fill="both", expand=True)
+
+    canvas = tk.Canvas(table_wrapper, bg="#FFF3D0", highlightthickness=0, width=650, height=400)
+    scrollbar = tk.Scrollbar(table_wrapper, orient="vertical", command=canvas.yview)
+    scrollable_frame = tk.Frame(canvas, bg="#FFF3D0")
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # Header
+    header = tk.Frame(scrollable_frame, bg="#FFF3D0")
     header.pack(fill="x")
 
     tk.Label(header, text="USERNAME", font=FONT, bg="#FFF3D0", fg=TEXT_DARK,
@@ -249,7 +269,7 @@ def show_all_users():
     tk.Label(header, text="JOINED DATE", font=FONT, bg="#FFF3D0", fg=TEXT_DARK,
              width=22, relief="solid", borderwidth=1, padx=10, pady=5).grid(row=0, column=2)
 
-    tk.Frame(box, bg="#000", height=1).pack(fill="x", pady=2)
+    tk.Frame(scrollable_frame, bg="#000", height=1).pack(fill="x", pady=2)
 
     conn = get_db_connection()
     users = []
@@ -264,18 +284,18 @@ def show_all_users():
             conn.close()
 
     if not users:
-        tk.Label(box, text="No users found.", font=FONT, bg="#FFF3D0", fg=TEXT_DARK, pady=15).pack()
+        tk.Label(scrollable_frame, text="No users found.", font=FONT, bg="#FFF3D0", fg=TEXT_DARK, pady=15).pack()
         return
 
     for username, role, date in users:
-        row = tk.Frame(box, bg="#FFF3D0")
+        row = tk.Frame(scrollable_frame, bg="#FFF3D0")
         row.pack(fill="x")
 
         if date:
             month = date.strftime("%b")
             day = date.day
             year = date.year
-            date_str = f"Joined {month}.{day}, {year}"
+            date_str = f"Joined {month} {day}, {year}"
         else:
             date_str = "—"
 
@@ -514,12 +534,10 @@ def show_admin_dashboard():
             messagebox.showerror("Error", 
                 "Category.py not found!\nCheck:\n• File exists: Category.py\n• Same folder as AdminDB.py")
 
-        
     def open_reading_records():
         if Main.current_user.get("role") != "Admin":
             messagebox.showwarning("Access Denied", "Only Admin can access Reading Records!")
             return
-    # still fixings
         import sys, os
         current_dir = os.path.dirname(os.path.abspath(__file__))
         if current_dir not in sys.path:
@@ -549,8 +567,8 @@ def show_admin_dashboard():
     tk.Frame(sidebar, bg="#5c290c", height=2).pack(fill="x", pady=10)
     
     tk.Button(sidebar, text="Logout", font=FONT, bg=BTN_RED, fg="white",
-          relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
-          command=lambda: [Main.set_user_status("Offline"), Main.back_to_login()]).pack(pady=5, side="bottom")
+              relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
+              command=lambda: [Main.set_user_status("Offline"), Main.back_to_login()]).pack(pady=5, side="bottom")
     
     content = tk.Frame(root, bg=BG_MAIN)
     content.pack(side="right", fill="both", expand=True)
@@ -599,19 +617,36 @@ def show_admin_dashboard():
         tk.Label(card, text=title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
         tk.Label(card, text=f"[{count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
     
-    tk.Label(content, text="USERS MANAGEMENT", font=FONT_TITLE, bg=BG_MAIN, fg=TEXT_DARK).pack(anchor="w", pady=(20, 5), padx=20)
+    tk.Label(content, text="USERS MANAGEMENT", font=FONT_TITLE, bg=BG_MAIN, fg=TEXT_DARK).pack(anchor="w", pady=(0, 5), padx=20)
     
-    table_frame = tk.Frame(content, bg=BG_CONTENT, padx=15, pady=15, relief="solid", borderwidth=1)
-    table_frame.pack(padx=20, fill="x")
+    # SCROLLABLE
+    table_wrapper = tk.Frame(content, bg=BG_CONTENT, relief="solid", borderwidth=1)
+    table_wrapper.pack(padx=20, fill="both", expand=True)
     
-    hdr = tk.Frame(table_frame, bg=BG_CONTENT)
-    hdr.pack(fill="x", pady=5)
+    canvas = tk.Canvas(table_wrapper, bg=BG_CONTENT, highlightthickness=0)
+    scrollbar = tk.Scrollbar(table_wrapper, orient="vertical", command=canvas.yview)
+    scrollable_frame = tk.Frame(canvas, bg=BG_CONTENT)
+    
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+    
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+    
+    # Header
+    hdr = tk.Frame(scrollable_frame, bg=BG_CONTENT)
+    hdr.pack(fill="x", pady=5, padx=15)
     tk.Label(hdr, text="ID", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=6, anchor="w").grid(row=0, column=0)
     tk.Label(hdr, text="USERNAME", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=15, anchor="w").grid(row=0, column=1)
     tk.Label(hdr, text="ROLE", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=12, anchor="w").grid(row=0, column=2)
     tk.Label(hdr, text="ACTIONS", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=25, anchor="w").grid(row=0, column=3)
     
-    tk.Frame(table_frame, bg="#e5cd90", height=1).pack(fill="x", pady=5)
+    tk.Frame(scrollable_frame, bg="#e5cd90", height=1).pack(fill="x", pady=5, padx=15)
     
     conn = get_db_connection()
     if conn:
@@ -621,12 +656,12 @@ def show_admin_dashboard():
             users = cur.fetchall()
             
             if not users:
-                tk.Label(table_frame, text="No users found.",
+                tk.Label(scrollable_frame, text="No users found.",
                          font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=10)
             else:
                 for uid, uname, role in users:
-                    row = tk.Frame(table_frame, bg=BG_CONTENT)
-                    row.pack(fill="x", pady=3)
+                    row = tk.Frame(scrollable_frame, bg=BG_CONTENT)
+                    row.pack(fill="x", pady=3, padx=15)
                     tk.Label(row, text=str(uid), font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=6, anchor="w").grid(row=0, column=0)
                     tk.Label(row, text=uname, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=15, anchor="w").grid(row=0, column=1)
                     tk.Label(row, text=role, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=12, anchor="w").grid(row=0, column=2)
