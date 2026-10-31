@@ -160,7 +160,10 @@ def render_books_list(data_list, parent_frame=None):
         status_color = "#22c55e" if status.upper() == "ACTIVE" else "#ef4444"
         tk.Label(row, text=status.upper(), font=FONT, bg=BG_CARD, fg=status_color,
                  width=10, anchor="e").pack(side="right", padx=5)
-        
+
+# ==================================================
+# FILTER / SEARCH
+# ==================================================
 def filter_books(search_text):
     search_text = search_text.strip().lower()
     filtered = books_data

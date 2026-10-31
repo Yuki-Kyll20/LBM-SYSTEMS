@@ -293,14 +293,12 @@ def open_books():
             import books
             books.show_books_screen()
         else:
-            messagebox.showinfo(
-                "Coming Soon",
-                "User Books List is being set up.\n\nAdmin Books List is ready now!"
-            )
+            import user_books
+            user_books.show_user_books_screen()
     except ModuleNotFoundError:
         messagebox.showerror(
             "File Missing",
-            f"Looking in: {main_dir}\n\nCheck:\n• books.py is in this folder\n• Filename: books.py"
+            f"Looking in: {main_dir}\n\nCheck:\n• books.py (Admin)\n• user_books.py (User)\n• Filenames are correct"
         )
 
 # ========== OPEN AUTHORS ==========
@@ -314,14 +312,12 @@ def open_authors():
             import Authors
             Authors.show_authors_screen()
         else:
-            messagebox.showinfo(
-                "Coming Soon",
-                "User Authors List is being set up.\n\nAdmin Authors List is ready now!"
-            )
-    except ModuleNotFoundError:
+            import user_Authors
+            user_Authors.show_user_authors_screen()
+    except ModuleNotFoundError as e:
         messagebox.showerror(
             "File Missing",
-            f"Looking in: {main_dir}\n\nCheck:\n• Authors.py is in this folder\n• Filename: Authors.py"
+            f"Looking in: {main_dir}\n\nError: {e}\n\nCheck:\n• Authors.py (Admin)\n• user_Authors.py (User)\n• Filenames are correct"
         )
 
 # ========== OPEN CATEGORIES ==========
@@ -335,14 +331,12 @@ def open_categories():
             import Category
             Category.show_categories_screen()
         else:
-            messagebox.showinfo(
-                "Coming Soon",
-                "User Categories List is being set up.\n\nAdmin Categories List is ready now!"
-            )
-    except ModuleNotFoundError:
+            import user_Category
+            user_Category.show_user_categories_screen()
+    except ModuleNotFoundError as e:
         messagebox.showerror(
             "File Missing",
-            f"Looking in: {main_dir}\n\nCheck:\n• Category.py is in this folder\n• Filename: Category.py"
+            f"Looking in: {main_dir}\n\nError: {e}\n\nCheck:\n• Category.py (Admin)\n• user_Category.py (User)\n• Filenames are correct"
         )
 
 # ========== OPEN READING RECORDS ==========
