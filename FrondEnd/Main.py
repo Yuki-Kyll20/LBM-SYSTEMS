@@ -97,7 +97,7 @@ current_user = {
 }
 
 def set_user_status(status):
-    """Update status in DB + local — Active / Offline"""
+    """Update status in DB + local — Online / Offline"""
     if not current_user["username"]:
         return
     current_user["status"] = status
@@ -263,8 +263,8 @@ def show_signup():
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO User (Username, Email, Password, Security_Question, Security_Answer, User_Role, Status)
-    VALUES (%s, %s, %s, 'What is your favorite book?', %s, 'User', 'Offline')
-""", (user, email if email else None, pwd, ans))
+                VALUES (%s, %s, %s, 'What is your favorite book?', %s, 'User', 'Offline')
+                """, (user, email if email else None, pwd, ans))
             conn.commit()
             messagebox.showinfo("Account Created", "Account created successfully!\nPlease Login.")
             show_login()
@@ -345,20 +345,30 @@ def open_reading_records():
     if main_dir not in sys.path:
         sys.path.insert(0, main_dir)
     
-    try:
-        if current_user["is_admin"]:
-            import ReadingRecords
-            ReadingRecords.show_reading_records_screen()
-        else:
-            messagebox.showinfo(
-                "Coming Soon",
-                "User Reading Records is being set up.\n\nAdmin Reading Records is ready now!"
+    if current_user["is_admin"]:
+        # Admin → goes to AdminBorrow screen
+        try:
+            import AdminBorrow
+            AdminBorrow.show_admin_borrow_screen()
+        except ModuleNotFoundError as e:
+            messagebox.showerror(
+                "File Missing",
+                f"Looking in: {main_dir}\n\n"
+                f"Cannot find AdminBorrow.py\n"
+                f"Check filename and folder!\n\nError: {e}"
             )
-    except ModuleNotFoundError:
-        messagebox.showerror(
-            "File Missing",
-            f"Looking in: {main_dir}\n\nCheck:\n• ReadingRecords.py is in this folder\n• Filename: ReadingRecords.py"
-        )
+    else:
+        # Regular User → goes to UserBorrow screen
+        try:
+            import UserBorrow
+            UserBorrow.show_user_borrow_screen()
+        except ModuleNotFoundError as e:
+            messagebox.showerror(
+                "File Missing",
+                f"Looking in: {main_dir}\n\n"
+                f"Cannot find UserBorrow.py\n"
+                f"Make sure UserBorrow.py is in the same folder!\n\nError: {e}"
+            )
 
 # ========== NAVIGATION DASHBOARD ==========
 def show_navigation_dashboard():
@@ -446,7 +456,7 @@ def show_navigation_dashboard():
         except: pass
         finally: conn.close()
     
-    status_color = "#22c55e" if current_user["status"] == "Active" else "#ef4444"
+    status_color = "#22c55e" if current_user["status"] == "Online" else "#ef4444"
     status_text = f"Status: "
     status_label_text = f"{current_user['status']} | Total Books: {book_count} | Users: {user_count}"
     
@@ -509,9 +519,9 @@ def show_login():
                 current_user["user_id"] = user_id
                 current_user["role"] = role
                 current_user["is_admin"] = is_admin
-                current_user["status"] = "Active"
+                current_user["status"] = "Online"
 
-                set_user_status("Active")
+                set_user_status("Online")
                 
                 clear_all()
                 

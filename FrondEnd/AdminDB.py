@@ -478,6 +478,31 @@ def show_delete_confirm(username):
 # ==================================================
 # MAIN ADMIN DASHBOARD
 # ==================================================
+def open_reading_records():
+    # Use Main's current_user directly — guaranteed to match login
+    if not Main.current_user["is_admin"]:
+        messagebox.showwarning("Access Denied", "Only Admin can access Reading Records!")
+        return
+    
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    
+    try:
+        import AdminBorrow
+        AdminBorrow.show_admin_borrow_screen()
+    except ModuleNotFoundError as e:
+        messagebox.showerror(
+            "File Missing",
+            f"Cannot find AdminBorrow.py!\n\n"
+            f"Error: {e}\n\n"
+            f"Make sure:\n"
+            f"• AdminBorrow.py exists\n"
+            f"• Same folder as AdminDB.py & Main.py"
+        )
+
 def show_admin_dashboard():
     clear_all()
     root.configure(bg=BG_MAIN)
@@ -533,17 +558,6 @@ def show_admin_dashboard():
         except ModuleNotFoundError:
             messagebox.showerror("Error", 
                 "Category.py not found!\nCheck:\n• File exists: Category.py\n• Same folder as AdminDB.py")
-
-    def open_reading_records():
-        if Main.current_user.get("role") != "Admin":
-            messagebox.showwarning("Access Denied", "Only Admin can access Reading Records!")
-            return
-        import sys, os
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        if current_dir not in sys.path:
-            sys.path.insert(0, current_dir)
-        import ReadingRecords
-        ReadingRecords.show_reading_records_screen()
 
     nav_items = [
         ("Home", show_admin_dashboard),
@@ -613,7 +627,7 @@ def show_admin_dashboard():
         elif title == "Records":
             card.config(cursor="hand2")
             card.bind("<Button-1>", lambda e: open_reading_records())
-    
+        
         tk.Label(card, text=title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
         tk.Label(card, text=f"[{count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
     
