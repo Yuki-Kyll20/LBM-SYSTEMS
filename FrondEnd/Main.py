@@ -5,6 +5,7 @@ import sys
 import os
 import re
 from datetime import datetime
+import hashlib
 
 # ========== WINDOW SETUP ==========
 root = tk.Tk()
@@ -43,9 +44,9 @@ def validate_email(email):
 
     if "@" not in email:
         return False, "Email MUST contain @\nExample: name@gmail.com"
-
-    before_at, after_at = email.split("@", 1)
     
+    before_at, after_at = email.split("@", 1)
+
     if not before_at:
         return False, "Missing text before @"
     
@@ -73,9 +74,31 @@ def validate_password(password):
     
     return True, "Valid"
 
+# ========== PASSWORD STRENGTH CHECKER ==========
+def check_password_strength(password):
+    """Return strength label and color based on password"""
+    if len(password) < 8:
+        return "Weak — Need 8+ characters", "#b91c1c"
+    
+    score = 0
+    if len(password) >= 8: score += 1
+    if len(password) >= 12: score += 1
+    if re.search(r'[A-Z]', password): score += 1
+    if re.search(r'[a-z]', password): score += 1
+    if re.search(r'[0-9]', password): score += 1
+    
+    if score <= 2:
+        return "Weak", "#b91c1c"
+    elif score <= 4:
+        return "Medium", "#f59e0b"
+    else:
+        return "Strong", "#c1ff72"
+    
 # ========== PASSWORD SHOW/HIDE TOGGLE ==========
-def create_password_field(parent, label_text, width=45):
-    """Create password entry with eye button to show/hide text"""
+def create_password_field(parent, label_text, width=45, show_strength_label=True):
+    """Create password entry with eye button and strength indicator"""
+    strength_label = None
+    
     if label_text:
         tk.Label(parent, text=label_text, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
     
@@ -93,10 +116,22 @@ def create_password_field(parent, label_text, width=45):
             entry.config(show="*")
             eye_btn.config(text="👁")
     
+    def update_strength(*args):
+        if strength_label:
+            pw = entry.get()
+            text, color = check_password_strength(pw)
+            strength_label.config(text=f"Strength: {text}", fg=color)
+    
     eye_btn = tk.Button(row, text="👁", command=toggle,
                         bg=BG_CONTENT, relief="flat", cursor="hand2",
                         font=("Arial", 12), padx=5)
     eye_btn.pack(side="right")
+    
+    if show_strength_label:
+        strength_label = tk.Label(parent, text="", font=("Arial", 10, "bold"),
+                                   bg=BG_CONTENT, anchor="w")
+        strength_label.pack(fill="x", pady=(0, 5))
+        entry.bind("<KeyRelease>", update_strength)
     
     return entry
 
@@ -121,6 +156,7 @@ current_user = {
     "username": None,
     "user_id": None,
     "role": None,
+    "email": None,
     "is_admin": False,
     "status": "Offline"
 }
@@ -158,10 +194,12 @@ def back_to_login():
         current_user["username"] = None
         current_user["user_id"] = None
         current_user["role"] = None
+        current_user["email"] = None
         current_user["is_admin"] = False
         current_user["status"] = "Offline"
         clear_all()
         show_login()
+
 
 def show_exit():
     clear_all()
@@ -200,8 +238,8 @@ def show_forgot_password():
              font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
     e_answer = tk.Entry(box, width=45); e_answer.pack(pady=3)
     
-    e_new = create_password_field(box, "New Password:", width=40)
-    e_conf = create_password_field(box, "Confirm Password:", width=40)
+    e_new = create_password_field(box, "New Password:", width=40, show_strength_label=False)
+    e_conf = create_password_field(box, "Confirm Password:", width=40, show_strength_label=False)
     
     def reset_pass():
         user = e_user.get().strip()
@@ -215,7 +253,7 @@ def show_forgot_password():
         if new_pass != conf_pass:
             messagebox.showerror("Error", "Passwords do not match!")
             return
-
+        
         is_valid, msg = validate_password(new_pass)
         if not is_valid:
             messagebox.showerror("Invalid Password", msg)
@@ -227,7 +265,8 @@ def show_forgot_password():
             cur = conn.cursor()
             cur.execute("SELECT User_ID FROM User WHERE Username=%s AND Security_Answer=%s", (user, ans))
             if cur.fetchone():
-                cur.execute("UPDATE User SET Password=%s WHERE Username=%s", (new_pass, user))
+                hashed_new = hashlib.sha256(new_pass.encode('utf-8')).hexdigest()
+                cur.execute("UPDATE User SET Password=%s WHERE Username=%s", (hashed_new, user))
                 conn.commit()
                 messagebox.showinfo("Success", "Password reset successfully!\nYou can now Login.")
                 show_login()
@@ -246,6 +285,7 @@ def show_forgot_password():
     lbl_login = tk.Label(link_frame, text="Login here", fg=LINK_COLOR, cursor="hand2", font=FONT)
     lbl_login.pack(side="left")
     lbl_login.bind("<Button-1>", lambda e: show_login())
+
 
 # ========== CREATE ACCOUNT / SIGNUP ==========
 def show_signup():
@@ -287,37 +327,42 @@ def show_signup():
             messagebox.showwarning("Warning", "Username and Password required!")
             return
         
+        # Email validation
         if email:
-            if "@" not in email:
-                messagebox.showerror("Invalid Email", "Email MUST contain @\nExample: name@gmail.com")
+            valid_email, email_msg = validate_email(email)
+            if not valid_email:
+                messagebox.showerror("Invalid Email", email_msg)
                 return
-            
-            local_part, domain_part = email.split("@", 1)
-            if not local_part:
-                messagebox.showerror("Invalid Email", "Missing text before @")
-                return
-            if "." not in domain_part:
-                messagebox.showerror("Invalid Email", "Domain needs a dot\nExample: gmail.com")
-                return
-            if " " in email:
-                messagebox.showerror("Invalid Email", "No spaces allowed")
-                return
-
-        if len(pwd) < 8:
-            messagebox.showerror("Invalid Password", "Password must be at least 8 characters long!")
+        
+        # Password validation
+        is_valid, pwd_msg = validate_password(pwd)
+        if not is_valid:
+            messagebox.showerror("Invalid Password", pwd_msg)
             return
-        if not re.fullmatch(r'[A-Za-z0-9]+', pwd):
-            messagebox.showerror("Invalid Password", "Password can only contain letters and numbers!\nNo special characters allowed.")
+        
+        # Security Answer — no special characters
+        if not re.fullmatch(r'[A-Za-z0-9\s]+', ans):
+            messagebox.showerror(
+                "Invalid Security Answer",
+                "Can only contain letters, numbers, and spaces!\nNo special characters allowed."
+            )
             return
         
         conn = get_db_connection()
         if not conn: return
         try:
             cur = conn.cursor()
+            if email:
+                cur.execute("SELECT User_ID FROM User WHERE Email=%s", (email,))
+                if cur.fetchone():
+                    messagebox.showerror("Error", "This email is already registered!\nUse a different email or leave it empty.")
+                    return
+            hashed_pwd = hashlib.sha256(pwd.encode('utf-8')).hexdigest()
             cur.execute("""
                 INSERT INTO User (Username, Email, Password, Security_Question, Security_Answer, User_Role, Status)
                 VALUES (%s, %s, %s, 'What is your favorite book?', %s, 'User', 'Offline')
-                """, (user, email if email else None, pwd, ans))
+                """, (user, email if email else None, hashed_pwd, ans))
+
             conn.commit()
             messagebox.showinfo("Account Created", "Account created successfully!\nPlease Login.")
             show_login()
@@ -399,7 +444,7 @@ def open_reading_records():
         sys.path.insert(0, main_dir)
     
     if current_user["is_admin"]:
-        # Admin → goes to AdminBorrow screen
+        # Admin - goes to AdminBorrow
         try:
             import AdminBorrow
             AdminBorrow.show_admin_borrow_screen()
@@ -411,7 +456,7 @@ def open_reading_records():
                 f"Check filename and folder!\n\nError: {e}"
             )
     else:
-        # Regular User → goes to UserBorrow screen
+        # Regular User - goes to UserBorrow
         try:
             import UserBorrow
             UserBorrow.show_user_borrow_screen()
@@ -431,7 +476,8 @@ def show_navigation_dashboard():
     top_header.pack(side="top", fill="x")
     top_header.pack_propagate(False)
     
-    tk.Label(top_header, text="NAVIGATION DASHBOARD",
+    role_label = "ADMIN" if current_user["is_admin"] else "USER"
+    tk.Label(top_header, text=f"NAVIGATION DASHBOARD — {role_label}",
              font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
 
     search_entry = tk.Entry(top_header, width=35, font=FONT)
@@ -468,9 +514,9 @@ def show_navigation_dashboard():
         ("Authors", open_authors),
         ("Categories", open_categories),
         ("Reading Records", open_reading_records),
-        ("My Collection", lambda: messagebox.showinfo("My Collection", "My Collection screen")),
-        ("Account", lambda: messagebox.showinfo("Account", "Account screen")),
-        ("Settings", lambda: messagebox.showinfo("Settings", "Settings screen")),
+        ("My Collection", open_collection),
+        ("Account", open_account),
+        ("Settings", open_settings),
     ]
     
     for name, cmd in nav_items:
@@ -491,11 +537,18 @@ def show_navigation_dashboard():
     
     main_content = tk.Frame(content, bg=BG_CONTENT, padx=20, pady=30, relief="solid", borderwidth=1)
     main_content.pack(fill="both", expand=True, padx=10, pady=10)
-    
-    tk.Label(main_content, text="MAIN CONTENT AREA", font=FONT_HEADING,
-             bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(60, 10))
-    tk.Label(main_content, text="(Tables / Lists / Forms)", font=FONT,
-             bg=BG_CONTENT, fg="#555").pack()
+
+    # ROLE-SPECIFIC MESSAGE
+    if current_user["is_admin"]:
+        tk.Label(main_content, text="📋 ADMIN NAVIGATION CENTER", font=FONT_HEADING,
+                 bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(40, 10))
+        tk.Label(main_content, text="Full Access — Manage Books, Users, Records & Collection", 
+                 font=FONT, bg=BG_CONTENT, fg="#555").pack()
+    else:
+        tk.Label(main_content, text="📋 USER NAVIGATION CENTER", font=FONT_HEADING,
+                 bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(40, 10))
+        tk.Label(main_content, text="Borrow Books, Track Reading Progress & View My Collection", 
+                 font=FONT, bg=BG_CONTENT, fg="#555").pack()
 
     conn = get_db_connection()
     book_count = user_count = 0
@@ -504,26 +557,79 @@ def show_navigation_dashboard():
             cur = conn.cursor()
             cur.execute("SELECT COUNT(*) FROM books")
             book_count = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM User")
-            user_count = cur.fetchone()[0]
+            if current_user["is_admin"]:
+                cur.execute("SELECT COUNT(*) FROM User")
+                user_count = cur.fetchone()[0]
         except: pass
         finally: conn.close()
     
     status_color = "#22c55e" if current_user["status"] == "Online" else "#ef4444"
-    status_text = f"Status: "
-    status_label_text = f"{current_user['status']} | Total Books: {book_count} | Users: {user_count}"
     
     status_frame = tk.Frame(content, bg=BG_CONTENT, padx=15, pady=8, relief="solid", borderwidth=1)
     status_frame.pack(fill="x", padx=10, pady=(0, 10))
     
-    tk.Label(status_frame, text=status_text, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left")
+    tk.Label(status_frame, text=f"Status: ", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left")
     tk.Label(status_frame, text=current_user["status"], font=FONT, bg=BG_CONTENT, fg=status_color).pack(side="left")
-    tk.Label(status_frame, text=f" | Total Books: {book_count} | Users: {user_count}",
+    tk.Label(status_frame, text=f" | Total Books: {book_count}",
              font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left")
+    if current_user["is_admin"]:
+        tk.Label(status_frame, text=f" | Total Users: {user_count}",
+                 font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left")
+
+# ========== OPEN COLLECTION ==========
+def open_collection():
+    main_dir = os.path.dirname(os.path.abspath(__file__))
+    if main_dir not in sys.path:
+        sys.path.insert(0, main_dir)
+    
+    try:
+        if current_user["is_admin"]:
+            import Collection
+            Collection.show_admin_collection_screen()
+        else:
+            import user_Collection
+            user_Collection.show_user_collection_screen()
+    except ModuleNotFoundError as e:
+        messagebox.showerror(
+            "File Missing",
+            f"Cannot open My Collection\nError: {e}"
+        )
+
+# ========== OPEN ACCOUNT — Works for Admin & User ==========
+def open_account():
+    main_dir = os.path.dirname(os.path.abspath(__file__))
+    if main_dir not in sys.path:
+        sys.path.insert(0, main_dir)
+    
+    try:
+        import Account
+        Account.show_account_screen()
+    except ModuleNotFoundError as e:
+        messagebox.showerror(
+            "File Missing",
+            f"Cannot find Account.py!\n\nError: {e}\n\nMake sure Account.py is in the same folder."
+        )
+
+# ========== OPEN SETTINGS ==========
+def open_settings():
+    main_dir = os.path.dirname(os.path.abspath(__file__))
+    if main_dir not in sys.path:
+        sys.path.insert(0, main_dir)
+    
+    try:
+        import Settings
+        Settings.show_settings_screen()
+    except ModuleNotFoundError as e:
+        messagebox.showerror(
+            "File Missing",
+            f"Cannot find Settings.py!\n\nError: {e}\n\nMake sure Settings.py is in the same folder."
+        )
 
 # ========== LOGIN ==========
 def show_login():
-    clear_all()
+    for w in root.winfo_children():
+        w.destroy()
+    
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
@@ -549,7 +655,6 @@ def show_login():
     e_pass = create_password_field(box, "Password:", width=32)
     
     def do_login():
-        global current_user
         user = e_user.get().strip()
         pwd = e_pass.get()
 
@@ -561,23 +666,24 @@ def show_login():
         if not conn: return
         try:
             cur = conn.cursor()
-            cur.execute("SELECT User_ID, User_Role FROM User WHERE Username=%s AND Password=%s", (user, pwd))
+            hashed_pwd = hashlib.sha256(pwd.encode('utf-8')).hexdigest()
+            cur.execute("SELECT User_ID, User_Role, Email FROM User WHERE Username=%s AND Password=%s", (user, hashed_pwd))
             result = cur.fetchone()
 
             if result:
-                user_id, role = result
+                user_id, role, email = result
                 is_admin = (role == "Admin")
 
                 current_user["username"] = user
                 current_user["user_id"] = user_id
                 current_user["role"] = role
+                current_user["email"] = email or "—"
                 current_user["is_admin"] = is_admin
                 current_user["status"] = "Online"
 
                 set_user_status("Online")
-
-                clear_all()
                 
+                clear_all()
                 if is_admin:
                     from AdminDB import show_admin_dashboard
                     show_admin_dashboard()
@@ -585,7 +691,7 @@ def show_login():
                     from UserDB import show_user_dashboard
                     show_user_dashboard()
             else:
-                messagebox.showerror("Login Failed", "Incorrect username or password!")
+                messagebox.showerror("Login Failed", "Incorrect username or password!\n\nPlease try again.")
         except Exception as e:
             messagebox.showerror("Error", str(e))
         finally:

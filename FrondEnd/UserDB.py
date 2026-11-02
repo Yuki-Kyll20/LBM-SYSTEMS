@@ -130,36 +130,17 @@ def show_reading_records():
 
 def show_my_collection():
     clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
-    frame.pack(fill="both", expand=True)
-    tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_user_dashboard).place(x=1130, y=15)
-    box = tk.Frame(frame, bg=BG_CONTENT, padx=50, pady=40, relief="solid", borderwidth=1)
-    box.place(relx=0.5, rely=0.5, anchor="center")
-    tk.Label(box, text="MY COLLECTION", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=20)
+    try:
+        import user_Collection
+        user_Collection.show_user_collection_screen()
+    except ModuleNotFoundError:
+        messagebox.showerror("Error", "user_Collection.py not found!\nCheck filename and folder.")
 
 def show_account():
-    clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
-    frame.pack(fill="both", expand=True)
-    tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_user_dashboard).place(x=1130, y=15)
-    box = tk.Frame(frame, bg=BG_CONTENT, padx=50, pady=40, relief="solid", borderwidth=1)
-    box.place(relx=0.5, rely=0.5, anchor="center")
-    tk.Label(box, text="ACCOUNT", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=20)
-    if Main.current_user:
-        tk.Label(box, text=f"Username: {Main.current_user['username']}", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
-        tk.Label(box, text=f"Role: {Main.current_user['role']}", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
+    Main.open_account()
 
 def show_settings():
-    clear_all()
-    frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
-    frame.pack(fill="both", expand=True)
-    tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_user_dashboard).place(x=1130, y=15)
-    box = tk.Frame(frame, bg=BG_CONTENT, padx=50, pady=40, relief="solid", borderwidth=1)
-    box.place(relx=0.5, rely=0.5, anchor="center")
-    tk.Label(box, text="SETTINGS", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=20)
+    Main.open_settings()
 
 # ==================================================
 # MAIN USER DASHBOARD — FIXED
@@ -223,7 +204,7 @@ def show_user_dashboard():
             cur.execute("SELECT COUNT(*) FROM Books"); book_count = cur.fetchone()[0]
             cur.execute("SELECT COUNT(*) FROM Authors"); author_count = cur.fetchone()[0]
             cur.execute("SELECT COUNT(*) FROM Categories"); cat_count = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM Borrow_Records"); rec_count = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM borrow_records"); rec_count = cur.fetchone()[0]
         except Exception as e:
             print(f"Stats error: {e}")
         finally:

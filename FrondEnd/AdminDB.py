@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import Main
 from Main import set_user_status
+import hashlib
 
 # ========== SHORTCUTS ==========
 root = Main.root
@@ -24,8 +25,30 @@ FONT = Main.FONT
 FONT_TITLE = Main.FONT_TITLE
 FONT_HEADING = Main.FONT_HEADING
 
+# ========== PASSWORD HASHING ==========
+def hash_password(password):
+    """Hash password before storing — SHA256"""
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+def check_password_strength(password):
+    """Return strength label and color"""
+    if len(password) < 8:
+        return "Weak — Need 8+ chars", "#b91c1c"
+    score = 0
+    if len(password) >= 8: score += 1
+    if len(password) >= 12: score += 1
+    if any(c.isupper() for c in password): score += 1
+    if any(c.islower() for c in password): score += 1
+    if any(c.isdigit() for c in password): score += 1
+    if score <= 2:
+        return "Weak", "#b91c1c"
+    elif score <= 4:
+        return "Medium", "#f59e0b"
+    else:
+        return "Strong", "#c1ff72"
+
 # ==================================================
-# ADMIN DASHBOARD
+# ADMIN DASHBOARD - NOTIFICATIONS
 # ==================================================
 def show_overdue_detail():
     clear_all()
@@ -38,7 +61,7 @@ def show_overdue_detail():
     box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30, relief="solid", borderwidth=1)
     box.place(relx=0.5, rely=0.5, anchor="center")
     
-    tk.Label(box, text="OVERDUE BOOK - USER: Yuki Chan",
+    tk.Label(box, text="OVERDUE BOOK — USER: Yuki Chan",
              font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
     
     header = tk.Frame(box, bg="#FFF3D0", padx=10, pady=8, relief="solid", borderwidth=1)
@@ -46,7 +69,7 @@ def show_overdue_detail():
     
     tk.Label(header, text="Book Title", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=25, anchor="w").grid(row=0, column=0)
     tk.Label(header, text="Due Date", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=15).grid(row=0, column=1)
-    tk.Label(header, text="Day Late", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=12).grid(row=0, column=2)
+    tk.Label(header, text="Days Late", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=12).grid(row=0, column=2)
     tk.Label(header, text="Fine Amount", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=15).grid(row=0, column=3)
     
     row_frame = tk.Frame(box, bg="#7B2CBF", padx=2, pady=2)
@@ -55,7 +78,7 @@ def show_overdue_detail():
     row_content = tk.Frame(row_frame, bg=BG_CONTENT, padx=10, pady=10)
     row_content.pack(fill="x")
     
-    tk.Label(row_content, text="The atlas 3 days", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=25, anchor="w").grid(row=0, column=0)
+    tk.Label(row_content, text="The Atlas", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=25, anchor="w").grid(row=0, column=0)
     tk.Label(row_content, text="Oct 10, 2026", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=15).grid(row=0, column=1)
     tk.Label(row_content, text="3 days", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=12).grid(row=0, column=2)
     tk.Label(row_content, text="₱15.00", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=15).grid(row=0, column=3)
@@ -95,7 +118,7 @@ def show_notifications():
     
     req1 = tk.Frame(pending_frame, bg="#FFF3D0")
     req1.pack(fill="x", pady=5)
-    tk.Label(req1, text="• Reyna Wants: \"Oshi Mayncrap\"", font=FONT,
+    tk.Label(req1, text="• Reyna wants: \"Oshi Mayncrap\"", font=FONT,
              bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
     tk.Button(req1, text="APPROVE", bg=BTN_GREEN, fg=TEXT_DARK, width=10, font=FONT,
               relief="solid", borderwidth=1).pack(side="right", padx=3)
@@ -104,7 +127,7 @@ def show_notifications():
     
     req2 = tk.Frame(pending_frame, bg="#FFF3D0")
     req2.pack(fill="x", pady=5)
-    tk.Label(req2, text="• Miks Wants: \"Earth 616\"", font=FONT,
+    tk.Label(req2, text="• Miks wants: \"Earth 616\"", font=FONT,
              bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
     tk.Button(req2, text="APPROVE", bg=BTN_GREEN, fg=TEXT_DARK, width=10, font=FONT,
               relief="solid", borderwidth=1).pack(side="right", padx=3)
@@ -119,11 +142,14 @@ def show_notifications():
     
     overdue_item = tk.Frame(overdue_frame, bg="#FFF3D0")
     overdue_item.pack(fill="x", pady=5)
-    tk.Label(overdue_item, text="• \"The atlas\" — 3 days late (yuki)", font=FONT,
+    tk.Label(overdue_item, text="• \"The Atlas\" — 3 days late (Yuki)", font=FONT,
              bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
     tk.Button(overdue_item, text="VIEW", bg=BTN_YELLOW, fg="#000", width=10, font=FONT,
               relief="solid", borderwidth=1, command=show_overdue_detail).pack(side="right", padx=3)
 
+# ==================================================
+# ADD NEW USER — WITH HASHING & STRENGTH CHECK
+# ==================================================
 def show_add_user():
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
@@ -140,6 +166,8 @@ def show_add_user():
     tk.Label(form_container, text="ADD NEW USER", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
 
     entries = {}
+    pass_shown = False
+    confirm_shown = False
 
     # --- Username ---
     tk.Label(form_container, text="Username:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
@@ -153,16 +181,27 @@ def show_add_user():
     e_email.pack(pady=(0, 10))
     entries["Email"] = e_email
 
-    # --- Password with SHOW/HIDE ---
+    # --- Password with SHOW/HIDE + STRENGTH ---
     tk.Label(form_container, text="Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
     pass_frame = tk.Frame(form_container, bg=BG_CONTENT)
-    pass_frame.pack(fill="x", pady=(0, 10))
+    pass_frame.pack(fill="x", pady=(0, 2))
     e_pass = tk.Entry(pass_frame, width=30, show="*", font=FONT)
     e_pass.pack(side="left")
     show_pass = tk.Button(pass_frame, text="👁️", bg=BG_CONTENT, fg=TEXT_DARK, 
                           relief="flat", width=3, command=lambda: toggle_password("pass"))
     show_pass.pack(side="right", padx=(5, 0))
     entries["Password"] = e_pass
+
+    # Strength label
+    strength_label = tk.Label(form_container, text="", font=("Arial", 10, "bold"),
+                               bg=BG_CONTENT, anchor="w")
+    strength_label.pack(fill="x", pady=(0, 10))
+
+    def update_strength(*args):
+        pw = e_pass.get()
+        text, color = check_password_strength(pw)
+        strength_label.config(text=f"Strength: {text}", fg=color)
+    e_pass.bind("<KeyRelease>", update_strength)
 
     # --- Confirm Password with SHOW/HIDE ---
     tk.Label(form_container, text="Confirm Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
@@ -176,8 +215,6 @@ def show_add_user():
     entries["Confirm Password"] = e_confirm
 
     # --- Toggle Function ---
-    pass_shown = False
-    confirm_shown = False
     def toggle_password(field):
         nonlocal pass_shown, confirm_shown
         if field == "pass":
@@ -192,7 +229,7 @@ def show_add_user():
     # --- Role Dropdown ---
     tk.Label(form_container, text="Role:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
     role_drop = ttk.Combobox(form_container, values=["User", "Admin"],
-                             state="readonly", width=32, font=FONT)
+                              state="readonly", width=32, font=FONT)
     role_drop.set("User")
     role_drop.pack(pady=(0, 10))
 
@@ -204,14 +241,12 @@ def show_add_user():
 
     # --- CREATE ACCOUNT ---
     def create_account():
-        username = entries["Username"].get().strip()
-        email = entries["Email"].get().strip()
-        password = entries["Password"].get()
-        confirm = entries["Confirm Password"].get()
+        username = e_user.get().strip()
+        email = e_email.get().strip()
+        password = e_pass.get()
+        confirm = e_confirm.get()
         role = role_drop.get()
-        answer = entries["Security Answer"].get().strip()
-
-        print(f"✅ CREATING: Role selected = [{role}]")
+        answer = e_security.get().strip()
 
         if not username:
             messagebox.showwarning("Warning", "Username is required!")
@@ -226,12 +261,20 @@ def show_add_user():
         if password != confirm:
             messagebox.showerror("Error", "Passwords do not match!")
             return
-        if len(password) < 8:
-            messagebox.showwarning("Warning", "Password must be at least 8 characters long!")
+        
+        # Use Main's password validation (same rules everywhere)
+        import Main
+        is_valid, msg = Main.validate_password(password)
+        if not is_valid:
+            messagebox.showerror("Invalid Password", msg)
             return
+        
         if not answer:
             messagebox.showwarning("Warning", "Security answer is required!")
             return
+
+        # Hash password — ONE correct way
+        hashed_pw = hash_password(password)
 
         conn = get_db_connection()
         if not conn:
@@ -240,20 +283,17 @@ def show_add_user():
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO User (Username, Email, Password, Security_Question, Security_Answer, User_Role, Status)
-                VALUES (%s, %s, %s, 'What is your favorite book?', %s, %s, %s)
-                """, (username, email if email else None, password, answer, role, 'Offline'))
+                VALUES (%s, %s, %s, 'What is your favorite book?', %s, %s, 'Offline')
+            """, (username, email if email else None, hashed_pw, answer, role))
             conn.commit()
             
-            # Verify immediately
-            cur.execute("SELECT User_Role FROM User WHERE Username=%s", (username,))
-            saved = cur.fetchone()
-            actual_role = saved[0] if saved else "NOT FOUND"
-            
             messagebox.showinfo("Success", 
-                f"Role selected: {role}\nRole saved: {actual_role}\n\nUser '{username}' created!")
+                f"User '{username}' created!\nPassword hashed and stored securely.")
             show_admin_dashboard()
+        except mysql.connector.IntegrityError:
+            messagebox.showerror("Error", "Username already exists!")
         except Exception as e:
-            messagebox.showerror("Error", f"Username already exists!\n{e}")
+            messagebox.showerror("Error", f"Failed to create user:\n{e}")
         finally:
             conn.close()
 
@@ -264,7 +304,10 @@ def show_add_user():
               relief="solid", borderwidth=1, command=create_account).pack(side="left", padx=5)
     tk.Button(btn_frame, text="CANCEL", bg=BTN_RED, fg="white", width=12, font=FONT,
               relief="solid", borderwidth=1, command=show_admin_dashboard).pack(side="left", padx=5)
-    
+
+# ==================================================
+# VIEW ALL USERS
+# ==================================================
 def show_all_users():
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
@@ -286,18 +329,15 @@ def show_all_users():
     scrollbar = tk.Scrollbar(table_wrapper, orient="vertical", command=canvas.yview)
     scrollable_frame = tk.Frame(canvas, bg="#FFF3D0")
 
-    scrollable_frame.bind(
-        "<Configure>",
-        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-    )
+    def on_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
 
-    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    scrollable_frame.bind("<Configure>", on_configure)
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=630)
     canvas.configure(yscrollcommand=scrollbar.set)
 
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
-
-    scrollable_frame.bind("<Configure>", lambda e: canvas.configure(width=e.width))
 
     # Header
     header = tk.Frame(scrollable_frame, bg="#FFF3D0")
@@ -346,7 +386,10 @@ def show_all_users():
                  width=12, relief="solid", borderwidth=1, padx=10, pady=5).grid(row=0, column=1)
         tk.Label(row, text=date_str, font=FONT, bg="#FFF3D0", fg=TEXT_DARK,
                  width=22, relief="solid", borderwidth=1, padx=10, pady=5).grid(row=0, column=2)
-        
+
+# ==================================================
+# VIEW USER DETAIL
+# ==================================================
 def show_user_detail(username):
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
@@ -373,21 +416,20 @@ def show_user_detail(username):
     if not conn: return
     try:
         cur = conn.cursor()
-        cur.execute("SELECT User_ID, Username, Email, Password, User_Role FROM User WHERE Username=%s", (username,))
+        cur.execute("SELECT User_ID, Username, Email, User_Role FROM User WHERE Username=%s", (username,))
         user = cur.fetchone()
         if user:
-            uid, uname, email, password, role = user
+            uid, uname, email, role = user
             
-            def make_display_field(label, value, mask=False):
+            def make_display_field(label, value):
                 tk.Label(box, text=f"{label}:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-                display_val = "●●●●●●●●" if mask else (value or "Not provided")
+                display_val = value or "Not provided"
                 tk.Label(box, text=display_val, font=FONT, bg="#e5d9b6", relief="solid", borderwidth=1,
                          width=35, anchor="w", padx=8, pady=5).pack(pady=(0, 10))
             
             make_display_field("ID", str(uid))
             make_display_field("Username", uname)
             make_display_field("Email", email[:3] + "***" if email else "Not provided")
-            make_display_field("Password", password, mask=True)
             make_display_field("Role", role.upper() if role else "USER")
         else:
             tk.Label(box, text="User not found.", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=10)
@@ -396,6 +438,9 @@ def show_user_detail(username):
     finally:
         conn.close()
 
+# ==================================================
+# EDIT USER — WITH HASHING + STRENGTH CHECK
+# ==================================================
 def show_edit_user(username):
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
@@ -420,7 +465,7 @@ def show_edit_user(username):
     user_data = None
     try:
         cur = conn.cursor()
-        cur.execute("SELECT User_ID, Username, Email, Password, User_Role FROM User WHERE Username=%s", (username,))
+        cur.execute("SELECT User_ID, Username, Email, User_Role FROM User WHERE Username=%s", (username,))
         user_data = cur.fetchone()
     except Exception as e:
         messagebox.showerror("Error", f"Cannot load user:\n{e}")
@@ -433,8 +478,9 @@ def show_edit_user(username):
         show_admin_dashboard()
         return
     
-    uid, uname, email, password, role = user_data
+    uid, uname, email, role = user_data
     entries = {}
+    pass_shown = False
 
     def make_edit_field(label, value):
         tk.Label(box, text=f"{label}:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
@@ -445,13 +491,44 @@ def show_edit_user(username):
 
     make_edit_field("Username", uname)
     make_edit_field("Email", email or "")
-    make_edit_field("Password", password)
+
+    # --- Password with SHOW/HIDE + STRENGTH ---
+    tk.Label(box, text="New Password (leave blank to keep current):", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
+    pass_frame = tk.Frame(box, bg=BG_CONTENT)
+    pass_frame.pack(fill="x", pady=(0, 2))
+    e_pass = tk.Entry(pass_frame, width=30, show="*", font=FONT)
+    e_pass.pack(side="left")
+    show_pass = tk.Button(pass_frame, text="👁️", bg=BG_CONTENT, fg=TEXT_DARK, 
+                          relief="flat", width=3, command=lambda: toggle_edit_pass())
+    show_pass.pack(side="right", padx=(5, 0))
+    entries["Password"] = e_pass
+
+    edit_strength_label = tk.Label(box, text="", font=("Arial", 10, "bold"),
+                                     bg=BG_CONTENT, anchor="w")
+    edit_strength_label.pack(fill="x", pady=(0, 10))
+
+    def update_edit_strength(*args):
+        pw = e_pass.get()
+        if pw:
+            text, color = check_password_strength(pw)
+            edit_strength_label.config(text=f"Strength: {text}", fg=color)
+        else:
+            edit_strength_label.config(text="Will keep current password", fg="#666")
+    
+    e_pass.bind("<KeyRelease>", update_edit_strength)
+    update_edit_strength()
+
+    def toggle_edit_pass():
+        nonlocal pass_shown
+        pass_shown = not pass_shown
+        e_pass.config(show="" if pass_shown else "*")
+        show_pass.config(text="🙈" if pass_shown else "👁️")
 
     # --- Role Dropdown ---
     tk.Label(box, text="Role:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
     
     role_drop = ttk.Combobox(box, values=["User", "Admin"],
-                             state="readonly", width=32, font=FONT)
+                              state="readonly", width=32, font=FONT)
     role_drop.set(role or "User")
     role_drop.pack(pady=(0, 10))
 
@@ -459,10 +536,8 @@ def show_edit_user(username):
         new_user = entries["Username"].get().strip()
         new_email = entries["Email"].get().strip()
         new_password = entries["Password"].get()
-        
         new_role = role_drop.get()
-        print(f"✅ ROLE BEING SAVED: [{new_role}]")
-
+        
         if not new_user:
             messagebox.showwarning("Warning", "Username cannot be empty!")
             return
@@ -473,28 +548,33 @@ def show_edit_user(username):
                 messagebox.showwarning("Warning", "Please enter a valid email address!\nExample: name@domain.com")
                 return
 
-        if len(new_password) < 8:
-            messagebox.showwarning("Warning", "Password must be at least 8 characters long!")
-            return
-        
         conn = get_db_connection()
         if not conn: return
         try:
             cur = conn.cursor()
-            cur.execute("""
-                UPDATE User
-                SET Username=%s, Email=%s, Password=%s, User_Role=%s
-                WHERE User_ID=%s
-            """, (new_user, new_email if new_email else None, new_password, new_role, uid))
+            
+            if new_password:
+                if len(new_password) < 8:
+                    messagebox.showwarning("Warning", "Password must be at least 8 characters long!")
+                    return
+                # HASH NEW PASSWORD BEFORE SAVING
+                hashed_pw = hash_password(new_password)
+                cur.execute("""
+                    UPDATE User
+                    SET Username=%s, Email=%s, Password=%s, User_Role=%s
+                    WHERE User_ID=%s
+                    """, (new_user, new_email if new_email else None, hashed_pw, new_role, uid))
+                msg = "User updated!\nPassword changed and secured."
+            else:
+                cur.execute("""
+                    UPDATE User
+                    SET Username=%s, Email=%s, User_Role=%s
+                    WHERE User_ID=%s
+                    """, (new_user, new_email if new_email else None, new_role, uid))
+                msg = "User updated!\nPassword unchanged."
+            
             conn.commit()
-            
-            # Verify immediately
-            cur.execute("SELECT User_Role FROM User WHERE User_ID=%s", (uid,))
-            saved_result = cur.fetchone()
-            actually_saved = saved_result[0] if saved_result else "NOT FOUND"
-            
-            messagebox.showinfo("Success", 
-                f"Role sent: {new_role}\nRole in DB: {actually_saved}\n\nUser updated successfully!")
+            messagebox.showinfo("Success", msg)
             show_admin_dashboard()
         except Exception as e:
             messagebox.showerror("Error", f"Update failed!\n{e}")
@@ -506,6 +586,9 @@ def show_edit_user(username):
     tk.Button(box, text="CANCEL", bg=BTN_RED, fg="white", width=12, font=FONT,
               relief="solid", borderwidth=1, command=show_admin_dashboard).pack(pady=5)
 
+# ==================================================
+# DELETE USER CONFIRM
+# ==================================================
 def show_delete_confirm(username):
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
@@ -543,10 +626,10 @@ def show_delete_confirm(username):
               relief="solid", borderwidth=1, command=show_admin_dashboard).grid(row=0, column=1, padx=15)
 
 # ==================================================
-# MAIN ADMIN DASHBOARD
+# READING RECORDS & ACCOUNT
 # ==================================================
 def open_reading_records():
-    if not Main.current_user["is_admin"]:
+    if not Main.current_user.get("is_admin", False):
         messagebox.showwarning("Access Denied", "Only Admin can access Reading Records!")
         return
     
@@ -562,33 +645,39 @@ def open_reading_records():
     except ModuleNotFoundError as e:
         messagebox.showerror(
             "File Missing",
-            f"Cannot find AdminBorrow.py!\n\n"
-            f"Error: {e}\n\n"
-            f"Make sure:\n"
-            f"• AdminBorrow.py exists\n"
-            f"• Same folder as AdminDB.py & Main.py"
+            f"Cannot find AdminBorrow.py!\n\nError: {e}"
         )
 
+def show_account_screen():
+    clear_all()
+    try:
+        import Account
+        Account.show_account_screen()
+    except Exception as e:
+        messagebox.showerror("Error", f"Cannot open Account:\n{e}")
+
+# ==================================================
+# MAIN ADMIN DASHBOARD
+# ==================================================
 def show_admin_dashboard():
     clear_all()
     root.configure(bg=BG_MAIN)
 
-    # ========= NO outer scroll =========
     outer_content = tk.Frame(root, bg=BG_MAIN)
     outer_content.pack(fill="both", expand=True)
 
-    # ========= HEADER =========
+    # HEADER
     top_header = tk.Frame(outer_content, bg=BG_CONTENT, height=60)
     top_header.pack(side="top", fill="x")
     top_header.pack_propagate(False)
 
-    tk.Label(top_header, text="WELCOME - ADMIN",
+    tk.Label(top_header, text="WELCOME — ADMIN",
              font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
 
     tk.Button(top_header, text="🔔", font=16, bg=BG_CONTENT, fg=TEXT_DARK,
               relief="flat", command=show_notifications).pack(side="right", padx=20)
 
-    # ========= SIDEBAR =========
+    # SIDEBAR 
     sidebar = tk.Frame(outer_content, bg=BG_SIDEBAR, width=200)
     sidebar.pack(side="left", fill="y")
     sidebar.pack_propagate(False)
@@ -633,9 +722,9 @@ def show_admin_dashboard():
         ("Authors", open_authors),
         ("Categories", open_categories),
         ("Reading Records", open_reading_records),
-        ("My Collection", lambda: messagebox.showinfo("Collection", "My Collection screen")),
-        ("Account", lambda: messagebox.showinfo("Account", "Account screen")),
-        ("Settings", lambda: messagebox.showinfo("Settings", "Settings screen")),
+        ("My Collection", lambda: __import__("Collection").Collection.show_admin_collection_screen()),
+        ("Account", Main.open_account),
+        ("Settings", Main.open_settings),
     ]
 
     for name, cmd in nav_items:
@@ -649,7 +738,7 @@ def show_admin_dashboard():
 
     tk.Button(sidebar, text="Logout", font=FONT, bg=BTN_RED, fg="white",
               relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
-              command=lambda: [Main.set_user_status("Offline"), Main.back_to_login()]).pack(pady=5, side="bottom")
+              command=lambda: [set_user_status("Offline"), back_to_login()]).pack(pady=5, side="bottom")
 
     # ========= MAIN CONTENT AREA =========
     content = tk.Frame(outer_content, bg=BG_MAIN)
@@ -700,7 +789,7 @@ def show_admin_dashboard():
 
     tk.Label(content, text="USERS MANAGEMENT", font=FONT_TITLE, bg=BG_MAIN, fg=TEXT_DARK).pack(anchor="w", pady=(0, 5), padx=20)
 
-    # Users Table
+    # Users Table — SCROLLABLE
     table_wrapper = tk.Frame(content, bg=BG_CONTENT, relief="solid", borderwidth=1)
     table_wrapper.pack(padx=20, fill="both", expand=True)
 
@@ -708,7 +797,10 @@ def show_admin_dashboard():
     scrollbar = tk.Scrollbar(table_wrapper, orient="vertical", command=canvas.yview)
     scrollable_frame = tk.Frame(canvas, bg=BG_CONTENT)
 
-    scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    def sync_scroll_region(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    scrollable_frame.bind("<Configure>", sync_scroll_region)
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
 
@@ -766,3 +858,11 @@ def show_admin_dashboard():
               relief="solid", borderwidth=1, command=show_add_user).grid(row=0, column=0, padx=5)
     tk.Button(qa_frame, text="VIEW ALL USERS", bg=BTN_BROWN, fg="white", width=18, font=FONT,
               relief="solid", borderwidth=1, command=show_all_users).grid(row=0, column=1, padx=5)
+
+def show_account_screen():
+    clear_all()
+    try:
+        import Account
+        Account.show_account_screen()
+    except Exception as e:
+        messagebox.showerror("Error", f"Cannot open Account:\n{e}")
