@@ -6,6 +6,57 @@ import os
 import re
 from datetime import datetime
 
+# ========== WINDOW SETUP ==========
+root = tk.Tk()
+root.title("Book Library Management System")
+root.geometry("1440x900")
+root.resizable(False, False)
+
+# ========== COLORS & STYLES ==========
+BG_MAIN = "#fef3c7"
+BG_SIDEBAR = "#78350f"
+BG_CONTENT = "#FFFBEB"
+BG_CARD = "#FFF3D0"
+BTN_BROWN = "#78350f"
+BTN_RED = "#b91c1c"
+BTN_GREEN = "#c1ff72"
+BTN_YELLOW = "#f59E0B"
+TEXT_DARK = "#000000"
+TEXT_LIGHT = "#FFFFFF"
+LINK_COLOR = "#43acd2"
+FONT = ("Arial", 12, "bold")
+FONT_TITLE = ("Arial", 14, "bold")
+FONT_HEADING = ("Arial", 16, "bold")
+
+# ========== EMAIL VALIDATION ==========
+def validate_email(email):
+    """
+    Rules:
+    - Optional field — BUT if typed, MUST have @
+    - Must have domain with dot
+    - No spaces
+    """
+    if not email or email.strip() == "":
+        return True, "Empty — optional field"
+    
+    email = email.strip()
+
+    if "@" not in email:
+        return False, "Email MUST contain @\nExample: name@gmail.com"
+
+    before_at, after_at = email.split("@", 1)
+    
+    if not before_at:
+        return False, "Missing text before @"
+    
+    if "." not in after_at:
+        return False, "Domain needs a dot\nExample: gmail.com"
+    
+    if " " in email:
+        return False, "No spaces allowed"
+    
+    return True, "Valid"
+
 # ========== PASSWORD VALIDATION ==========
 def validate_password(password):
     """
@@ -64,28 +115,6 @@ def get_db_connection():
         messagebox.showerror("Database Error",
             f"Cannot connect to MySQL:\n{err}\n\nMake sure XAMPP MySQL is running!")
         return None
-    
-# ========== WINDOW SETUP ==========
-root = tk.Tk()
-root.title("Book Library Management System")
-root.geometry("1440x900")
-root.resizable(False, False)
-
-# ========== COLORS & STYLES ==========
-BG_MAIN = "#fef3c7"
-BG_SIDEBAR = "#78350f"
-BG_CONTENT = "#FFFBEB"
-BG_CARD = "#FFF3D0"
-BTN_BROWN = "#78350f"
-BTN_RED = "#b91c1c"
-BTN_GREEN = "#c1ff72"
-BTN_YELLOW = "#f59E0B"
-TEXT_DARK = "#000000"
-TEXT_LIGHT = "#FFFFFF"
-LINK_COLOR = "#43acd2"
-FONT = ("Arial", 12, "bold")
-FONT_TITLE = ("Arial", 14, "bold")
-FONT_HEADING = ("Arial", 16, "bold")
 
 # ========== USER SESSION — PROTECTED ==========
 current_user = {
@@ -105,8 +134,8 @@ def set_user_status(status):
     if conn:
         try:
             cur = conn.cursor()
-            cur.execute("UPDATE User SET Status=%s WHERE Username=%s",
-                       (status, current_user["username"]))
+            cur.execute("UPDATE User SET Status=%s WHERE User_ID=%s",
+                       (status, current_user["user_id"]))
             conn.commit()
         except Exception as e:
             print(f"Status update: {e}")
@@ -229,10 +258,12 @@ def show_signup():
     tk.Label(box, text="SIGN UP", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=10)
     
     tk.Label(box, text="Username:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
-    e_user = tk.Entry(box, width=45); e_user.pack(pady=3)
+    e_user = tk.Entry(box, width=45)
+    e_user.pack(pady=3)
     
     tk.Label(box, text="Email:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
-    e_email = tk.Entry(box, width=45); e_email.pack(pady=3)
+    e_email = tk.Entry(box, width=45)
+    e_email.pack(pady=3)
     
     tk.Label(box, text="Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
     tk.Label(box, text="(8+ characters, letters & numbers only)", 
@@ -240,8 +271,12 @@ def show_signup():
     e_pass = create_password_field(box, "", width=40)
     
     tk.Label(box, text="Security Answer: Favorite Book", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 0))
-    e_ans = tk.Entry(box, width=45); e_ans.pack(pady=3)
-    
+    e_ans = tk.Entry(box, width=45)
+    e_ans.pack(pady=3)
+
+    # ==============================================
+    # CREATE ACCOUNT — VALIDATION FIRST
+    # ==============================================
     def create_account():
         user = e_user.get().strip()
         email = e_email.get().strip()
@@ -251,10 +286,28 @@ def show_signup():
         if not all([user, pwd]):
             messagebox.showwarning("Warning", "Username and Password required!")
             return
+        
+        if email:
+            if "@" not in email:
+                messagebox.showerror("Invalid Email", "Email MUST contain @\nExample: name@gmail.com")
+                return
+            
+            local_part, domain_part = email.split("@", 1)
+            if not local_part:
+                messagebox.showerror("Invalid Email", "Missing text before @")
+                return
+            if "." not in domain_part:
+                messagebox.showerror("Invalid Email", "Domain needs a dot\nExample: gmail.com")
+                return
+            if " " in email:
+                messagebox.showerror("Invalid Email", "No spaces allowed")
+                return
 
-        is_valid, msg = validate_password(pwd)
-        if not is_valid:
-            messagebox.showerror("Invalid Password", msg)
+        if len(pwd) < 8:
+            messagebox.showerror("Invalid Password", "Password must be at least 8 characters long!")
+            return
+        if not re.fullmatch(r'[A-Za-z0-9]+', pwd):
+            messagebox.showerror("Invalid Password", "Password can only contain letters and numbers!\nNo special characters allowed.")
             return
         
         conn = get_db_connection()
@@ -272,7 +325,7 @@ def show_signup():
             messagebox.showerror("Error", "Username already exists!")
         finally:
             conn.close()
-    
+
     tk.Button(box, text="CREATE ACCOUNT", bg=BTN_BROWN, fg="white", width=20, command=create_account).pack(pady=15)
     
     link_frame = tk.Frame(box, bg=BG_CONTENT)
@@ -478,17 +531,17 @@ def show_login():
               relief="solid", borderwidth=1, command=show_exit).place(x=1325, y=15)
     
     tk.Label(frame, text="BOOK LIBRARY MANAGEMENT SYSTEM",
-             font=("Arial", 18, "bold"), bg=BG_MAIN, fg=TEXT_DARK).pack(pady=(50, 35))
+             font=("Arial", 18, "bold"), bg=BG_MAIN, fg=TEXT_DARK).pack(pady=(40, 10))
     
     box = tk.Frame(frame, bg=BG_CONTENT, padx=60, pady=25)
     box.place(relx=0.5, rely=0.5, anchor="center")
     
     tk.Label(box, text="LOGIN", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(0, 20))
-    
+
     tk.Label(box, text="Username:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
     e_user = tk.Entry(box, width=35)
     e_user.pack(pady=(3, 10))
-    
+
     tk.Label(box, text="Email:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
     e_email = tk.Entry(box, width=35)
     e_email.pack(pady=(3, 10))
@@ -499,18 +552,18 @@ def show_login():
         global current_user
         user = e_user.get().strip()
         pwd = e_pass.get()
-        
+
         if not all([user, pwd]):
             messagebox.showwarning("Warning", "Username and Password are required!")
             return
-        
+
         conn = get_db_connection()
         if not conn: return
         try:
             cur = conn.cursor()
             cur.execute("SELECT User_ID, User_Role FROM User WHERE Username=%s AND Password=%s", (user, pwd))
             result = cur.fetchone()
-            
+
             if result:
                 user_id, role = result
                 is_admin = (role == "Admin")
@@ -522,7 +575,7 @@ def show_login():
                 current_user["status"] = "Online"
 
                 set_user_status("Online")
-                
+
                 clear_all()
                 
                 if is_admin:
@@ -540,15 +593,15 @@ def show_login():
     
     tk.Button(box, text="LOGIN", bg="white", fg=TEXT_DARK, width=15,
               relief="solid", borderwidth=1, command=do_login).pack(pady=(0, 20))
-    
+
     lnk_frame = tk.Frame(box, bg=BG_CONTENT)
     lnk_frame.pack()
-    
+
     tk.Label(lnk_frame, text="Don't have an Account? ", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).grid(row=0, column=0)
     lbl_signup = tk.Label(lnk_frame, text="[ Create Account ]", fg=LINK_COLOR, cursor="hand2", font=FONT)
     lbl_signup.grid(row=0, column=1, padx=(5, 0))
     lbl_signup.bind("<Button-1>", lambda e: show_signup())
-    
+
     lbl_forgot = tk.Label(lnk_frame, text="Forgot Password?", fg=LINK_COLOR, cursor="hand2", font=FONT)
     lbl_forgot.grid(row=1, column=0, columnspan=2, pady=(10, 0))
     lbl_forgot.bind("<Button-1>", lambda e: show_forgot_password())

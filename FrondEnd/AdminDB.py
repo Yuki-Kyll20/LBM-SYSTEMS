@@ -143,39 +143,62 @@ def show_add_user():
 
     # --- Username ---
     tk.Label(form_container, text="Username:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_user = tk.Entry(form_container, width=45, font=FONT)
+    e_user = tk.Entry(form_container, width=35, font=FONT)
     e_user.pack(pady=(0, 10))
     entries["Username"] = e_user
 
     # --- Email ---
     tk.Label(form_container, text="Email:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_email = tk.Entry(form_container, width=45, font=FONT)
+    e_email = tk.Entry(form_container, width=35, font=FONT)
     e_email.pack(pady=(0, 10))
     entries["Email"] = e_email
 
-    # --- Password ---
+    # --- Password with SHOW/HIDE ---
     tk.Label(form_container, text="Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_pass = tk.Entry(form_container, width=45, show="*", font=FONT)
-    e_pass.pack(pady=(0, 10))
+    pass_frame = tk.Frame(form_container, bg=BG_CONTENT)
+    pass_frame.pack(fill="x", pady=(0, 10))
+    e_pass = tk.Entry(pass_frame, width=30, show="*", font=FONT)
+    e_pass.pack(side="left")
+    show_pass = tk.Button(pass_frame, text="👁️", bg=BG_CONTENT, fg=TEXT_DARK, 
+                          relief="flat", width=3, command=lambda: toggle_password("pass"))
+    show_pass.pack(side="right", padx=(5, 0))
     entries["Password"] = e_pass
 
-    # --- Confirm Password ---
+    # --- Confirm Password with SHOW/HIDE ---
     tk.Label(form_container, text="Confirm Password:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_confirm = tk.Entry(form_container, width=45, show="*", font=FONT)
-    e_confirm.pack(pady=(0, 10))
+    confirm_frame = tk.Frame(form_container, bg=BG_CONTENT)
+    confirm_frame.pack(fill="x", pady=(0, 10))
+    e_confirm = tk.Entry(confirm_frame, width=30, show="*", font=FONT)
+    e_confirm.pack(side="left")
+    show_confirm = tk.Button(confirm_frame, text="👁️", bg=BG_CONTENT, fg=TEXT_DARK, 
+                              relief="flat", width=3, command=lambda: toggle_password("confirm"))
+    show_confirm.pack(side="right", padx=(5, 0))
     entries["Confirm Password"] = e_confirm
+
+    # --- Toggle Function ---
+    pass_shown = False
+    confirm_shown = False
+    def toggle_password(field):
+        nonlocal pass_shown, confirm_shown
+        if field == "pass":
+            pass_shown = not pass_shown
+            e_pass.config(show="" if pass_shown else "*")
+            show_pass.config(text="🙈" if pass_shown else "👁️")
+        elif field == "confirm":
+            confirm_shown = not confirm_shown
+            e_confirm.config(show="" if confirm_shown else "*")
+            show_confirm.config(text="🙈" if confirm_shown else "👁️")
 
     # --- Role Dropdown ---
     tk.Label(form_container, text="Role:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-    role_var = tk.StringVar(value="User")
-    role_select = ttk.Combobox(form_container, textvariable=role_var, values=["User", "Admin"],
-                                state="readonly", width=42, font=FONT)
-    role_select.pack(pady=(0, 10))
-    entries["Role"] = role_var
+    role_drop = ttk.Combobox(form_container, values=["User", "Admin"],
+                             state="readonly", width=32, font=FONT)
+    role_drop.set("User")
+    role_drop.pack(pady=(0, 10))
 
     # --- Security Question ---
     tk.Label(form_container, text='"What is your favorite book?"', font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_security = tk.Entry(form_container, width=45, font=FONT)
+    e_security = tk.Entry(form_container, width=35, font=FONT)
     e_security.pack(pady=(0, 20))
     entries["Security Answer"] = e_security
 
@@ -185,17 +208,26 @@ def show_add_user():
         email = entries["Email"].get().strip()
         password = entries["Password"].get()
         confirm = entries["Confirm Password"].get()
-        role = entries["Role"].get()
+        role = role_drop.get()
         answer = entries["Security Answer"].get().strip()
+
+        print(f"✅ CREATING: Role selected = [{role}]")
 
         if not username:
             messagebox.showwarning("Warning", "Username is required!")
             return
+        
+        if email:
+            import re
+            if not re.fullmatch(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', email):
+                messagebox.showwarning("Warning", "Please enter a valid email address!\nExample: name@domain.com")
+                return
+        
         if password != confirm:
             messagebox.showerror("Error", "Passwords do not match!")
             return
-        if len(password) < 4:
-            messagebox.showwarning("Warning", "Password must be at least 4 characters!")
+        if len(password) < 8:
+            messagebox.showwarning("Warning", "Password must be at least 8 characters long!")
             return
         if not answer:
             messagebox.showwarning("Warning", "Security answer is required!")
@@ -208,10 +240,17 @@ def show_add_user():
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO User (Username, Email, Password, Security_Question, Security_Answer, User_Role, Status)
-                VALUES (%s, %s, %s, 'What is your favorite book?', %s, %s, 'Offline')
-            """, (username, email if email else None, password, answer, role))
+                VALUES (%s, %s, %s, 'What is your favorite book?', %s, %s, %s)
+                """, (username, email if email else None, password, answer, role, 'Offline'))
             conn.commit()
-            messagebox.showinfo("Success", f"User '{username}' created successfully!")
+            
+            # Verify immediately
+            cur.execute("SELECT User_Role FROM User WHERE Username=%s", (username,))
+            saved = cur.fetchone()
+            actual_role = saved[0] if saved else "NOT FOUND"
+            
+            messagebox.showinfo("Success", 
+                f"Role selected: {role}\nRole saved: {actual_role}\n\nUser '{username}' created!")
             show_admin_dashboard()
         except Exception as e:
             messagebox.showerror("Error", f"Username already exists!\n{e}")
@@ -225,7 +264,7 @@ def show_add_user():
               relief="solid", borderwidth=1, command=create_account).pack(side="left", padx=5)
     tk.Button(btn_frame, text="CANCEL", bg=BTN_RED, fg="white", width=12, font=FONT,
               relief="solid", borderwidth=1, command=show_admin_dashboard).pack(side="left", padx=5)
-
+    
 def show_all_users():
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
@@ -257,6 +296,8 @@ def show_all_users():
 
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
+
+    scrollable_frame.bind("<Configure>", lambda e: canvas.configure(width=e.width))
 
     # Header
     header = tk.Frame(scrollable_frame, bg="#FFF3D0")
@@ -394,27 +435,46 @@ def show_edit_user(username):
     
     uid, uname, email, password, role = user_data
     entries = {}
-    
+
     def make_edit_field(label, value):
         tk.Label(box, text=f"{label}:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
         e = tk.Entry(box, width=35, font=FONT)
         e.insert(0, value or "")
         e.pack(pady=(0, 10))
         entries[label] = e
-    
+
     make_edit_field("Username", uname)
     make_edit_field("Email", email or "")
     make_edit_field("Password", password)
-    make_edit_field("Role", role or "User")
+
+    # --- Role Dropdown ---
+    tk.Label(box, text="Role:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
     
+    role_drop = ttk.Combobox(box, values=["User", "Admin"],
+                             state="readonly", width=32, font=FONT)
+    role_drop.set(role or "User")
+    role_drop.pack(pady=(0, 10))
+
     def save_changes():
         new_user = entries["Username"].get().strip()
         new_email = entries["Email"].get().strip()
         new_password = entries["Password"].get()
-        new_role = entries["Role"].get().strip()
         
+        new_role = role_drop.get()
+        print(f"✅ ROLE BEING SAVED: [{new_role}]")
+
         if not new_user:
             messagebox.showwarning("Warning", "Username cannot be empty!")
+            return
+
+        if new_email:
+            import re
+            if not re.fullmatch(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', new_email):
+                messagebox.showwarning("Warning", "Please enter a valid email address!\nExample: name@domain.com")
+                return
+
+        if len(new_password) < 8:
+            messagebox.showwarning("Warning", "Password must be at least 8 characters long!")
             return
         
         conn = get_db_connection()
@@ -427,7 +487,14 @@ def show_edit_user(username):
                 WHERE User_ID=%s
             """, (new_user, new_email if new_email else None, new_password, new_role, uid))
             conn.commit()
-            messagebox.showinfo("Success", "User updated successfully!")
+            
+            # Verify immediately
+            cur.execute("SELECT User_Role FROM User WHERE User_ID=%s", (uid,))
+            saved_result = cur.fetchone()
+            actually_saved = saved_result[0] if saved_result else "NOT FOUND"
+            
+            messagebox.showinfo("Success", 
+                f"Role sent: {new_role}\nRole in DB: {actually_saved}\n\nUser updated successfully!")
             show_admin_dashboard()
         except Exception as e:
             messagebox.showerror("Error", f"Update failed!\n{e}")
@@ -479,7 +546,6 @@ def show_delete_confirm(username):
 # MAIN ADMIN DASHBOARD
 # ==================================================
 def open_reading_records():
-    # Use Main's current_user directly — guaranteed to match login
     if not Main.current_user["is_admin"]:
         messagebox.showwarning("Access Denied", "Only Admin can access Reading Records!")
         return
@@ -506,25 +572,29 @@ def open_reading_records():
 def show_admin_dashboard():
     clear_all()
     root.configure(bg=BG_MAIN)
-    
-    top_header = tk.Frame(root, bg=BG_CONTENT, height=60)
+
+    # ========= NO outer scroll =========
+    outer_content = tk.Frame(root, bg=BG_MAIN)
+    outer_content.pack(fill="both", expand=True)
+
+    # ========= HEADER =========
+    top_header = tk.Frame(outer_content, bg=BG_CONTENT, height=60)
     top_header.pack(side="top", fill="x")
     top_header.pack_propagate(False)
-    
+
     tk.Label(top_header, text="WELCOME - ADMIN",
-             font=FONT_TITLE,
-             bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
-    
+             font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
+
     tk.Button(top_header, text="🔔", font=16, bg=BG_CONTENT, fg=TEXT_DARK,
               relief="flat", command=show_notifications).pack(side="right", padx=20)
-    
-    sidebar = tk.Frame(root, bg=BG_SIDEBAR, width=200)
+
+    # ========= SIDEBAR =========
+    sidebar = tk.Frame(outer_content, bg=BG_SIDEBAR, width=200)
     sidebar.pack(side="left", fill="y")
     sidebar.pack_propagate(False)
-    
+
     def open_books():
-        import sys
-        import os
+        import sys, os
         current_dir = os.path.dirname(os.path.abspath(__file__))
         if current_dir not in sys.path:
             sys.path.insert(0, current_dir)
@@ -533,10 +603,9 @@ def show_admin_dashboard():
             books.show_books_screen()
         except ModuleNotFoundError:
             messagebox.showerror("Error", "books.py not found!\nCheck filename and folder.")
-    
+
     def open_authors():
-        import sys
-        import os
+        import sys, os
         current_dir = os.path.dirname(os.path.abspath(__file__))
         if current_dir not in sys.path:
             sys.path.insert(0, current_dir)
@@ -547,8 +616,7 @@ def show_admin_dashboard():
             messagebox.showerror("Error", "Authors.py not found!\nCheck filename and folder.")
 
     def open_categories():
-        import sys
-        import os
+        import sys, os
         current_dir = os.path.dirname(os.path.abspath(__file__))
         if current_dir not in sys.path:
             sys.path.insert(0, current_dir)
@@ -556,8 +624,7 @@ def show_admin_dashboard():
             import Category
             Category.show_categories_screen()
         except ModuleNotFoundError:
-            messagebox.showerror("Error", 
-                "Category.py not found!\nCheck:\n• File exists: Category.py\n• Same folder as AdminDB.py")
+            messagebox.showerror("Error", "Category.py not found!\nCheck file exists and same folder.")
 
     nav_items = [
         ("Home", show_admin_dashboard),
@@ -570,23 +637,24 @@ def show_admin_dashboard():
         ("Account", lambda: messagebox.showinfo("Account", "Account screen")),
         ("Settings", lambda: messagebox.showinfo("Settings", "Settings screen")),
     ]
-    
+
     for name, cmd in nav_items:
         is_home = (name == "Home")
         btn_bg = "#5c290c" if is_home else BG_SIDEBAR
         tk.Button(sidebar, text=name, font=FONT, bg=btn_bg, fg=TEXT_LIGHT,
                   relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
                   command=cmd).pack(pady=1)
-    
+
     tk.Frame(sidebar, bg="#5c290c", height=2).pack(fill="x", pady=10)
-    
+
     tk.Button(sidebar, text="Logout", font=FONT, bg=BTN_RED, fg="white",
               relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
               command=lambda: [Main.set_user_status("Offline"), Main.back_to_login()]).pack(pady=5, side="bottom")
-    
-    content = tk.Frame(root, bg=BG_MAIN)
+
+    # ========= MAIN CONTENT AREA =========
+    content = tk.Frame(outer_content, bg=BG_MAIN)
     content.pack(side="right", fill="both", expand=True)
-    
+
     conn = get_db_connection()
     b = a = c = r = 0
     if conn:
@@ -598,19 +666,18 @@ def show_admin_dashboard():
             cur.execute("SELECT COUNT(*) FROM borrow_records"); r = cur.fetchone()[0]
         except Exception as e:
             print(f"Stats: {e}")
-        finally:
-            conn.close()
-    
+        finally: conn.close()
+
     stats_frame = tk.Frame(content, bg=BG_MAIN)
     stats_frame.pack(pady=25, padx=20, anchor="w")
-    
+
     stats_data = [
         ("Books", b),
         ("Authors", a),
         ("Categories", c),
         ("Records", r)
     ]
-    
+
     for title, count in stats_data:
         card = tk.Frame(stats_frame, bg=BG_CONTENT, padx=35, pady=20, relief="solid", borderwidth=1)
         card.pack(side="left", padx=8)
@@ -627,41 +694,41 @@ def show_admin_dashboard():
         elif title == "Records":
             card.config(cursor="hand2")
             card.bind("<Button-1>", lambda e: open_reading_records())
-        
+
         tk.Label(card, text=title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
         tk.Label(card, text=f"[{count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=5)
-    
+
     tk.Label(content, text="USERS MANAGEMENT", font=FONT_TITLE, bg=BG_MAIN, fg=TEXT_DARK).pack(anchor="w", pady=(0, 5), padx=20)
-    
-    # SCROLLABLE
+
+    # Users Table
     table_wrapper = tk.Frame(content, bg=BG_CONTENT, relief="solid", borderwidth=1)
     table_wrapper.pack(padx=20, fill="both", expand=True)
-    
+
     canvas = tk.Canvas(table_wrapper, bg=BG_CONTENT, highlightthickness=0)
     scrollbar = tk.Scrollbar(table_wrapper, orient="vertical", command=canvas.yview)
     scrollable_frame = tk.Frame(canvas, bg=BG_CONTENT)
-    
-    scrollable_frame.bind(
-        "<Configure>",
-        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-    )
-    
+
+    scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
-    
+
+    def sync_width(event):
+        canvas.itemconfig(canvas.find_all()[0], width=event.width)
+    canvas.bind("<Configure>", sync_width)
+
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
-    
+
     # Header
     hdr = tk.Frame(scrollable_frame, bg=BG_CONTENT)
     hdr.pack(fill="x", pady=5, padx=15)
     tk.Label(hdr, text="ID", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=6, anchor="w").grid(row=0, column=0)
     tk.Label(hdr, text="USERNAME", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=15, anchor="w").grid(row=0, column=1)
     tk.Label(hdr, text="ROLE", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=12, anchor="w").grid(row=0, column=2)
-    tk.Label(hdr, text="ACTIONS", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=25, anchor="w").grid(row=0, column=3)
-    
+    tk.Label(hdr, text="ACTIONS", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK, width=25, anchor="center").grid(row=0, column=3)
+
     tk.Frame(scrollable_frame, bg="#e5cd90", height=1).pack(fill="x", pady=5, padx=15)
-    
+
     conn = get_db_connection()
     if conn:
         try:
@@ -670,8 +737,7 @@ def show_admin_dashboard():
             users = cur.fetchall()
             
             if not users:
-                tk.Label(scrollable_frame, text="No users found.",
-                         font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=10)
+                tk.Label(scrollable_frame, text="No users found.", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=10)
             else:
                 for uid, uname, role in users:
                     row = tk.Frame(scrollable_frame, bg=BG_CONTENT)
@@ -683,24 +749,19 @@ def show_admin_dashboard():
                     act = tk.Frame(row, bg=BG_CONTENT)
                     act.grid(row=0, column=3)
                     tk.Button(act, text="VIEW", bg=BTN_YELLOW, fg="#000", width=7, font=("Arial", 10, "bold"),
-                              relief="solid", borderwidth=1,
-                              command=lambda u=uname: show_user_detail(u)).grid(row=0, column=0, padx=2)
+                              relief="solid", borderwidth=1, command=lambda u=uname: show_user_detail(u)).grid(row=0, column=0, padx=2)
                     tk.Button(act, text="EDIT", bg=BTN_BROWN, fg="white", width=7, font=("Arial", 10, "bold"),
-                              relief="solid", borderwidth=1,
-                              command=lambda u=uname: show_edit_user(u)).grid(row=0, column=1, padx=2)
+                              relief="solid", borderwidth=1, command=lambda u=uname: show_edit_user(u)).grid(row=0, column=1, padx=2)
                     tk.Button(act, text="DELETE", bg=BTN_RED, fg="white", width=7, font=("Arial", 10, "bold"),
-                              relief="solid", borderwidth=1,
-                              command=lambda u=uname: show_delete_confirm(u)).grid(row=0, column=2, padx=2)
+                              relief="solid", borderwidth=1, command=lambda u=uname: show_delete_confirm(u)).grid(row=0, column=2, padx=2)
         except Exception as e:
             messagebox.showerror("Error", f"Cannot load users:\n{e}")
-        finally:
-            conn.close()
-    
+        finally: conn.close()
+
     tk.Label(content, text="QUICK ACTIONS", font=FONT_TITLE, bg=BG_MAIN, fg=TEXT_DARK).pack(anchor="w", pady=(20, 5), padx=20)
-    
+
     qa_frame = tk.Frame(content, bg=BG_MAIN)
-    qa_frame.pack(anchor="w", padx=20)
-    
+    qa_frame.pack(anchor="w", padx=20, pady=(0, 30))
     tk.Button(qa_frame, text="+ ADD NEW USER", bg=BTN_GREEN, fg=TEXT_DARK, width=18, font=FONT,
               relief="solid", borderwidth=1, command=show_add_user).grid(row=0, column=0, padx=5)
     tk.Button(qa_frame, text="VIEW ALL USERS", bg=BTN_BROWN, fg="white", width=18, font=FONT,
