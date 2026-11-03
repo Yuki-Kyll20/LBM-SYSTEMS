@@ -446,16 +446,10 @@ def open_reading_records():
     if main_dir not in sys.path:
         sys.path.insert(0, main_dir)
     
-    # DOUBLE-CHECK
     role = current_user.get("role", "")
-    is_admin_flag = current_user.get("is_admin", False)
-    is_admin = (role == "Admin") or (is_admin_flag is True)
-    
-    # Debug — will show in console
-    print(f"Reading Records - role='{role}' | is_admin_flag={is_admin_flag} | is_admin={is_admin}")
+    is_admin = (role == "Admin")
     
     if is_admin:
-        # Admin - goes to AdminBorrow
         try:
             import AdminBorrow
             AdminBorrow.show_admin_borrow_screen()
@@ -467,7 +461,6 @@ def open_reading_records():
                 f"Check filename and folder!\n\nError: {e}"
             )
     else:
-        # Regular User - goes to UserBorrow
         try:
             import UserBorrow
             UserBorrow.show_user_borrow_screen()
@@ -488,8 +481,7 @@ def show_navigation_dashboard():
     top_header.pack_propagate(False)
     
     role = current_user.get("role", "")
-    is_admin_flag = current_user.get("is_admin", False)
-    is_admin = (role == "Admin") or (is_admin_flag is True)
+    is_admin = (role == "Admin")
     role_label = "ADMIN" if is_admin else "USER"
     tk.Label(top_header, text=f"NAVIGATION DASHBOARD — {role_label}",
              font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
@@ -499,7 +491,7 @@ def show_navigation_dashboard():
     tk.Label(top_header, text="SEARCH:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="right", pady=12)
 
     def open_notifications():
-        if current_user["is_admin"]:
+        if is_admin:
             from AdminDB import show_notifications
             show_notifications()
         else:
@@ -514,7 +506,7 @@ def show_navigation_dashboard():
     sidebar.pack_propagate(False)
 
     def go_home():
-        if current_user["is_admin"]:
+        if is_admin:
             from AdminDB import show_admin_dashboard
             show_admin_dashboard()
         else:
@@ -552,8 +544,8 @@ def show_navigation_dashboard():
     main_content = tk.Frame(content, bg=BG_CONTENT, padx=20, pady=30, relief="solid", borderwidth=1)
     main_content.pack(fill="both", expand=True, padx=10, pady=10)
 
-    # ROLE-SPECIFIC MESSAGE
-    if current_user["is_admin"]:
+    # uses single is_admin check
+    if is_admin:
         tk.Label(main_content, text="📋 ADMIN NAVIGATION CENTER", font=FONT_HEADING,
                  bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(40, 10))
         tk.Label(main_content, text="Full Access — Manage Books, Users, Records & Collection", 
@@ -571,7 +563,7 @@ def show_navigation_dashboard():
             cur = conn.cursor()
             cur.execute("SELECT COUNT(*) FROM books")
             book_count = cur.fetchone()[0]
-            if current_user["is_admin"]:
+            if is_admin:
                 cur.execute("SELECT COUNT(*) FROM User")
                 user_count = cur.fetchone()[0]
         except: pass
@@ -586,7 +578,7 @@ def show_navigation_dashboard():
     tk.Label(status_frame, text=current_user["status"], font=FONT, bg=BG_CONTENT, fg=status_color).pack(side="left")
     tk.Label(status_frame, text=f" | Total Books: {book_count}",
              font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left")
-    if current_user["is_admin"]:
+    if is_admin:
         tk.Label(status_frame, text=f" | Total Users: {user_count}",
                  font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left")
 
@@ -596,8 +588,11 @@ def open_collection():
     if main_dir not in sys.path:
         sys.path.insert(0, main_dir)
         
+    role = current_user.get("role", "")
+    is_admin = (role == "Admin")
+    
     try:
-        if current_user["is_admin"]:
+        if is_admin:
             import Collection
             Collection.show_admin_collection_screen()
         else:
@@ -605,6 +600,7 @@ def open_collection():
             user_Collection.show_user_collection_screen()
     except ModuleNotFoundError as e:
         messagebox.showerror("File Missing", f"Cannot open My Collection\nError: {e}")
+
 
 # ========== OPEN ACCOUNT — Works for Admin & User ==========
 def open_account():
@@ -627,14 +623,28 @@ def open_settings():
     if main_dir not in sys.path:
         sys.path.insert(0, main_dir)
     
-    try:
-        import Settings
-        Settings.show_settings_screen()
-    except ModuleNotFoundError as e:
-        messagebox.showerror(
-            "File Missing",
-            f"Cannot find Settings.py!\n\nError: {e}\n\nMake sure Settings.py is in the same folder."
-        )
+    role = current_user.get("role", "")
+    is_admin = (role == "Admin") or current_user.get("is_admin", False)
+    
+    if is_admin:
+        try:
+            import Settings  # Admin - Password & System Settings
+            Settings.show_settings_screen()
+        except ModuleNotFoundError as e:
+            messagebox.showerror(
+                "File Missing",
+                f"Cannot find Settings.py (Admin)\n\nError: {e}"
+            )
+    else:
+        try:
+            import User_Settings  # User - password only
+            User_Settings.show_user_settings_screen()
+        except ModuleNotFoundError as e:
+            messagebox.showerror(
+                "File Missing",
+                f"Cannot find User_Settings.py\n\nError: {e}"
+            )
+
 
 # ========== LOGIN ==========
 def show_login():

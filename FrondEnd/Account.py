@@ -108,13 +108,15 @@ def show_account_screen():
     username = current_user.get("username", "—")
     email = current_user.get("email", "—")
     role = current_user.get("role", "—")
+
+    print(f"Account Debug → user_id={user_id}, username={username}")
     
     def make_info_field(label_text, value):
         tk.Label(info_card, text=label_text, font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(10, 2))
         entry = tk.Entry(info_card, font=FONT, width=50)
+        entry.pack(fill="x")
         entry.insert(0, value)
         entry.configure(state="readonly", bg="#e9e9e9")
-        entry.pack(fill="x")
         return entry
     
     make_info_field("ID:", str(user_id))
@@ -126,9 +128,9 @@ def show_account_screen():
     pass_frame.pack(fill="x")
     
     pass_entry = tk.Entry(pass_frame, font=FONT, width=40)
+    pass_entry.pack(side="left")
     pass_entry.insert(0, "************")
     pass_entry.configure(state="readonly")
-    pass_entry.pack(side="left")
     
     tk.Button(pass_frame, text="CHANGE", bg=BTN_GREEN, fg=TEXT_DARK,
               width=10, font=FONT, relief="solid", borderwidth=1,
@@ -319,6 +321,18 @@ def go_collection():
         import user_Collection
         user_Collection.show_user_collection_screen()
 
+def go_navigation():
+    if current_user.get("role") == "Admin":
+        import AdminDB
+        AdminDB.show_navigation_dashboard()
+    else:
+        import UserDB
+        UserDB.show_navigation_dashboard()
+
 def go_settings():
-    import Settings
-    Settings.show_settings_screen()
+    if current_user.get("role") == "Admin":
+        import Settings
+        Settings.show_settings_screen()
+    else:
+        import User_Settings
+        User_Settings.show_user_settings_screen()

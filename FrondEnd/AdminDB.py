@@ -4,7 +4,6 @@ import Main
 from Main import set_user_status
 import hashlib
 import mysql.connector
-import Collection
 
 # ========== SHORTCUTS ==========
 root = Main.root
@@ -741,19 +740,18 @@ def show_delete_confirm(username):
 # ==================================================
 def open_reading_records():
     import Main
-    user_role = Main.current_user.get("role", "")
-    is_admin = (user_role == "Admin")
-    
-    print(f"DEBUG: role = {user_role}, is_admin = {is_admin}")
+    role = Main.current_user.get("role", "")
+    is_admin = (role == "Admin")
     
     if not is_admin:
         messagebox.showwarning(
             "Access Denied",
             "Only Admin can access Reading Records!\n\n"
             f"Current User: {Main.current_user.get('username', 'Unknown')}\n"
-            f"Role: {user_role or 'Not set'}"
+            f"Role: {role or 'Not set'}"
         )
         return
+
     
     import sys, os
     current_dir = os.path.dirname(os.path.abspath(__file__))

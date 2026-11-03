@@ -255,16 +255,17 @@ def show_user_dashboard():
     clear_all()
     root.configure(bg=BG_MAIN)
     
-    username = Main.current_user["username"] if Main.current_user else "User"
+    username = Main.current_user.get("username") or "User"
+    display_name = username.upper() if username != "User" else "USER"
     
     # ========= TOP HEADER =========
     top_header = tk.Frame(root, bg=BG_CONTENT, height=60, relief="solid", borderwidth=1)
     top_header.pack(side="top", fill="x")
     top_header.pack_propagate(False)
     
-    tk.Label(top_header, text=f"WELCOME - USER", 
+    tk.Label(top_header, text=f"WELCOME — {display_name}",
              font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
-    
+
     tk.Button(top_header, text="🔔", font=("Arial", 16), bg=BG_CONTENT, fg=TEXT_DARK,
               relief="flat", command=show_notifications).pack(side="right", padx=20)
     
@@ -296,8 +297,8 @@ def show_user_dashboard():
     
     tk.Button(sidebar, text="Logout", font=FONT, bg=BTN_RED, fg="white",
               relief="flat", cursor="hand2", width=22, anchor="w", padx=10,
-              command=back_to_login).pack(pady=5, side="bottom")
-    
+              command=lambda: [Main.set_user_status("Offline"), back_to_login()]).pack(pady=5, side="bottom")
+
     # ========= MAIN CONTENT =========
     content = tk.Frame(root, bg=BG_MAIN)
     content.pack(side="right", fill="both", expand=True)
@@ -360,6 +361,3 @@ def show_user_dashboard():
              bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w")
     
     tk.Frame(activity_frame, bg="#d4b86a", height=1).pack(fill="x", pady=8)
-    
-    tk.Label(activity_frame, text="(List View)  ← Example Quick Search: Oshi Mayncrap — Yuki — Reading — 2026-11-12", 
-             font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=5)
