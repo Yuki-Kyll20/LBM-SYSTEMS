@@ -33,8 +33,8 @@ FONT_HEADING = ("Arial", 16, "bold")
 def validate_email(email):
     """
     Rules:
-    - Optional field — BUT if typed, MUST have @
-    - Must have domain with dot
+    - Optional field — BUT if typed, MUST be @gmail.com or @email.com only
+    - No typos like .cam, .con, etc.
     - No spaces
     """
     if not email or email.strip() == "":
@@ -45,13 +45,16 @@ def validate_email(email):
     if "@" not in email:
         return False, "Email MUST contain @\nExample: name@gmail.com"
     
+    # Allowed domains — ONLY these two
+    allowed_domains = ["gmail.com", "email.com"]
+    
     before_at, after_at = email.split("@", 1)
 
     if not before_at:
         return False, "Missing text before @"
     
-    if "." not in after_at:
-        return False, "Domain needs a dot\nExample: gmail.com"
+    if after_at not in allowed_domains:
+        return False, f"Only these domains allowed:\n✅ @gmail.com\n✅ @email.com\n\nYou typed: @{after_at}"
     
     if " " in email:
         return False, "No spaces allowed"
@@ -355,7 +358,7 @@ def show_signup():
             if email:
                 cur.execute("SELECT User_ID FROM User WHERE Email=%s", (email,))
                 if cur.fetchone():
-                    messagebox.showerror("Error", "This email is already registered!\nUse a different email or leave it empty.")
+                    messagebox.showerror("Error", "This email is already registered!")
                     return
             hashed_pwd = hashlib.sha256(pwd.encode('utf-8')).hexdigest()
             cur.execute("""
@@ -443,7 +446,15 @@ def open_reading_records():
     if main_dir not in sys.path:
         sys.path.insert(0, main_dir)
     
-    if current_user["is_admin"]:
+    # DOUBLE-CHECK
+    role = current_user.get("role", "")
+    is_admin_flag = current_user.get("is_admin", False)
+    is_admin = (role == "Admin") or (is_admin_flag is True)
+    
+    # Debug — will show in console
+    print(f"Reading Records - role='{role}' | is_admin_flag={is_admin_flag} | is_admin={is_admin}")
+    
+    if is_admin:
         # Admin - goes to AdminBorrow
         try:
             import AdminBorrow
@@ -476,7 +487,10 @@ def show_navigation_dashboard():
     top_header.pack(side="top", fill="x")
     top_header.pack_propagate(False)
     
-    role_label = "ADMIN" if current_user["is_admin"] else "USER"
+    role = current_user.get("role", "")
+    is_admin_flag = current_user.get("is_admin", False)
+    is_admin = (role == "Admin") or (is_admin_flag is True)
+    role_label = "ADMIN" if is_admin else "USER"
     tk.Label(top_header, text=f"NAVIGATION DASHBOARD — {role_label}",
              font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
 
@@ -492,7 +506,7 @@ def show_navigation_dashboard():
             from UserDB import show_notifications
             show_notifications()
     
-    tk.Button(top_header, text="🔔", font=16, bg=BG_CONTENT, fg=TEXT_DARK,
+    tk.Button(top_header, text="🔔", font=("Arial", 16), bg=BG_CONTENT, fg=TEXT_DARK,
               relief="flat", command=open_notifications).pack(side="right", padx=5)
 
     sidebar = tk.Frame(root, bg=BG_SIDEBAR, width=200, relief="solid", borderwidth=1)
@@ -581,7 +595,7 @@ def open_collection():
     main_dir = os.path.dirname(os.path.abspath(__file__))
     if main_dir not in sys.path:
         sys.path.insert(0, main_dir)
-    
+        
     try:
         if current_user["is_admin"]:
             import Collection
@@ -590,10 +604,7 @@ def open_collection():
             import user_Collection
             user_Collection.show_user_collection_screen()
     except ModuleNotFoundError as e:
-        messagebox.showerror(
-            "File Missing",
-            f"Cannot open My Collection\nError: {e}"
-        )
+        messagebox.showerror("File Missing", f"Cannot open My Collection\nError: {e}")
 
 # ========== OPEN ACCOUNT — Works for Admin & User ==========
 def open_account():
@@ -678,7 +689,7 @@ def show_login():
                 current_user["user_id"] = user_id
                 current_user["role"] = role
                 current_user["email"] = email or "—"
-                current_user["is_admin"] = is_admin
+                current_user["is_admin"] = (role == "Admin")
                 current_user["status"] = "Online"
 
                 set_user_status("Online")

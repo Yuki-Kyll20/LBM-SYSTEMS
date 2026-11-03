@@ -3,6 +3,8 @@ from tkinter import messagebox, ttk
 import Main
 from Main import set_user_status
 import hashlib
+import mysql.connector
+import Collection
 
 # ========== SHORTCUTS ==========
 root = Main.root
@@ -50,7 +52,7 @@ def check_password_strength(password):
 # ==================================================
 # ADMIN DASHBOARD - NOTIFICATIONS
 # ==================================================
-def show_overdue_detail():
+def show_overdue_detail(record_id, username, book_title, due_date):
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
@@ -61,7 +63,7 @@ def show_overdue_detail():
     box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30, relief="solid", borderwidth=1)
     box.place(relx=0.5, rely=0.5, anchor="center")
     
-    tk.Label(box, text="OVERDUE BOOK — USER: Yuki Chan",
+    tk.Label(box, text=f"OVERDUE BOOK — USER: {username}",
              font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
     
     header = tk.Frame(box, bg="#FFF3D0", padx=10, pady=8, relief="solid", borderwidth=1)
@@ -72,30 +74,50 @@ def show_overdue_detail():
     tk.Label(header, text="Days Late", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=12).grid(row=0, column=2)
     tk.Label(header, text="Fine Amount", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=15).grid(row=0, column=3)
     
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    days_late = (today - due_date).days if due_date else 0
+    fine_per_day = 5
+    fine_amount = days_late * fine_per_day
+    
     row_frame = tk.Frame(box, bg="#7B2CBF", padx=2, pady=2)
     row_frame.pack(fill="x", pady=(0, 15))
     
     row_content = tk.Frame(row_frame, bg=BG_CONTENT, padx=10, pady=10)
     row_content.pack(fill="x")
     
-    tk.Label(row_content, text="The Atlas", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=25, anchor="w").grid(row=0, column=0)
-    tk.Label(row_content, text="Oct 10, 2026", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=15).grid(row=0, column=1)
-    tk.Label(row_content, text="3 days", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=12).grid(row=0, column=2)
-    tk.Label(row_content, text="₱15.00", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=15).grid(row=0, column=3)
+    tk.Label(row_content, text=book_title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=25, anchor="w").grid(row=0, column=0)
+    tk.Label(row_content, text=due_date.strftime("%b %d, %Y") if due_date else "—", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=15).grid(row=0, column=1)
+    tk.Label(row_content, text=f"{days_late} days", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=12).grid(row=0, column=2)
+    tk.Label(row_content, text=f"₱{fine_amount:.2f}", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, width=15).grid(row=0, column=3)
     
     total_frame = tk.Frame(box, bg="#FFF3D0", padx=15, pady=12, relief="solid", borderwidth=1)
     total_frame.pack(fill="x", pady=(0, 15))
     
-    tk.Label(total_frame, text="TOTAL OUTSTANDING FINE: ₱15.00",
+    tk.Label(total_frame, text=f"TOTAL OUTSTANDING FINE: ₱{fine_amount:.2f}",
              font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK).pack(anchor="w")
+
+    def mark_returned():
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("UPDATE borrow_records SET Status='Completed', Date_Returned=NOW() WHERE id=%s", (record_id,))
+                conn.commit()
+                messagebox.showinfo("Returned", "Marked as returned!")
+                show_notifications()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed: {e}")
+            finally:
+                conn.close()
     
     btn_frame = tk.Frame(box, bg=BG_CONTENT)
     btn_frame.pack(anchor="w")
     
     tk.Button(btn_frame, text="Mark All Returned", bg=BTN_GREEN, fg=TEXT_DARK, width=20, font=FONT,
-              relief="solid", borderwidth=1).grid(row=0, column=0, padx=5)
+              relief="solid", borderwidth=1, command=mark_returned).grid(row=0, column=0, padx=5)
     tk.Button(btn_frame, text="Send Reminder", bg=BTN_YELLOW, fg="#000", width=20, font=FONT,
-              relief="solid", borderwidth=1).grid(row=0, column=1, padx=5)
+              relief="solid", borderwidth=1, command=lambda: messagebox.showinfo("Reminder", f"Reminder sent to {username}!")).grid(row=0, column=1, padx=5)
 
 def show_notifications():
     clear_all()
@@ -110,42 +132,129 @@ def show_notifications():
     
     tk.Label(box, text="NOTIFICATIONS", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
     
+    # ========= PENDING BORROW REQUESTS =========
     pending_frame = tk.Frame(box, bg="#FFF3D0", padx=15, pady=15, relief="solid", borderwidth=1)
     pending_frame.pack(fill="x", pady=(0, 15))
     
     tk.Label(pending_frame, text="PENDING BORROW REQUESTS:", font=FONT_TITLE,
              bg="#FFF3D0", fg=TEXT_DARK).pack(anchor="w", pady=(0, 10))
     
-    req1 = tk.Frame(pending_frame, bg="#FFF3D0")
-    req1.pack(fill="x", pady=5)
-    tk.Label(req1, text="• Reyna wants: \"Oshi Mayncrap\"", font=FONT,
-             bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
-    tk.Button(req1, text="APPROVE", bg=BTN_GREEN, fg=TEXT_DARK, width=10, font=FONT,
-              relief="solid", borderwidth=1).pack(side="right", padx=3)
-    tk.Button(req1, text="REJECT", bg=BTN_RED, fg="white", width=10, font=FONT,
-              relief="solid", borderwidth=1).pack(side="right", padx=3)
+    conn = get_db_connection()
+    pending_requests = []
+    if conn:
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT br.id, u.Username, b.Title 
+                FROM borrow_records br
+                JOIN User u ON br.User_ID = u.User_ID
+                JOIN Books b ON br.Book_ID = b.Book_ID
+                WHERE br.Status = 'Pending'
+            """)
+            pending_requests = cur.fetchall()
+        except Exception as e:
+            print(f"Pending error: {e}")
+            pending_requests = []
+        finally:
+            conn.close()
     
-    req2 = tk.Frame(pending_frame, bg="#FFF3D0")
-    req2.pack(fill="x", pady=5)
-    tk.Label(req2, text="• Miks wants: \"Earth 616\"", font=FONT,
-             bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
-    tk.Button(req2, text="APPROVE", bg=BTN_GREEN, fg=TEXT_DARK, width=10, font=FONT,
-              relief="solid", borderwidth=1).pack(side="right", padx=3)
-    tk.Button(req2, text="REJECT", bg=BTN_RED, fg="white", width=10, font=FONT,
-              relief="solid", borderwidth=1).pack(side="right", padx=3)
+    if not pending_requests:
+        tk.Label(pending_frame, text="No pending requests.", font=FONT, bg="#FFF3D0", fg=TEXT_DARK).pack(anchor="w")
+    else:
+        for req in pending_requests:
+            req_id = req['id']
+            uname = req['Username']
+            btitle = req['Title']
+            
+            req_row = tk.Frame(pending_frame, bg="#FFF3D0")
+            req_row.pack(fill="x", pady=5)
+            
+            tk.Label(req_row, text=f"• {uname} wants: \"{btitle}\"", font=FONT,
+                     bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
+            
+            def approve_this(rid=req_id):
+                c = get_db_connection()
+                if c:
+                    try:
+                        cur = c.cursor()
+                        cur.execute("UPDATE borrow_records SET Status='Reading' WHERE id=%s", (rid,))
+                        c.commit()
+                        messagebox.showinfo("Approved", "Request approved!")
+                        show_notifications()
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Approve failed: {e}")
+                    finally:
+                        c.close()
+            
+            def reject_this(rid=req_id):
+                c = get_db_connection()
+                if c:
+                    try:
+                        cur = c.cursor()
+                        cur.execute("UPDATE borrow_records SET Status='Dropped' WHERE id=%s", (rid,))
+                        c.commit()
+                        messagebox.showinfo("Rejected", "Request rejected!")
+                        show_notifications()
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Reject failed: {e}")
+                    finally:
+                        c.close()
+            
+            tk.Button(req_row, text="APPROVE", bg=BTN_GREEN, fg=TEXT_DARK, width=10, font=FONT,
+                      relief="solid", borderwidth=1, command=approve_this).pack(side="right", padx=3)
+            tk.Button(req_row, text="REJECT", bg=BTN_RED, fg="white", width=10, font=FONT,
+                      relief="solid", borderwidth=1, command=reject_this).pack(side="right", padx=3)
     
+    # ========= OVERDUE BOOKS =========
     overdue_frame = tk.Frame(box, bg="#FFF3D0", padx=15, pady=15, relief="solid", borderwidth=1)
     overdue_frame.pack(fill="x")
     
     tk.Label(overdue_frame, text="OVERDUE BOOKS:", font=FONT_TITLE,
              bg="#FFF3D0", fg=TEXT_DARK).pack(anchor="w", pady=(0, 10))
     
-    overdue_item = tk.Frame(overdue_frame, bg="#FFF3D0")
-    overdue_item.pack(fill="x", pady=5)
-    tk.Label(overdue_item, text="• \"The Atlas\" — 3 days late (Yuki)", font=FONT,
-             bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
-    tk.Button(overdue_item, text="VIEW", bg=BTN_YELLOW, fg="#000", width=10, font=FONT,
-              relief="solid", borderwidth=1, command=show_overdue_detail).pack(side="right", padx=3)
+    from datetime import datetime
+    overdue_items = []
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT br.id, u.Username, b.Title, br.Date_Finish AS Due_Date
+                FROM borrow_records br
+                JOIN User u ON br.User_ID = u.User_ID
+                JOIN Books b ON br.Book_ID = b.Book_ID
+                WHERE br.Status IN ('Reading', 'On Hold')
+                  AND br.Date_Finish < %s
+                  AND br.Date_Returned IS NULL
+            """, (datetime.now(),))
+            overdue_items = cur.fetchall()
+        except Exception as e:
+            print(f"Overdue error: {e}")
+        finally:
+            conn.close()
+    
+    if not overdue_items:
+        tk.Label(overdue_frame, text="No overdue books.", font=FONT, bg="#FFF3D0", fg=TEXT_DARK).pack(anchor="w")
+    else:
+        for item in overdue_items:
+            o_id = item['id']
+            o_user = item['Username']
+            o_book = item['Title']
+            o_due = item['Due_Date']
+            days_late = (datetime.now() - o_due).days
+            
+            item_row = tk.Frame(overdue_frame, bg="#FFF3D0")
+            item_row.pack(fill="x", pady=5)
+            
+            tk.Label(item_row, text=f"• \"{o_book}\" — {days_late} day{'s' if days_late!=1 else ''} late ({o_user})", 
+                     font=FONT, bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
+            
+            def view_detail(rid=o_id, usr=o_user, bk=o_book, due=o_due):
+                show_overdue_detail(rid, usr, bk, due)
+            
+            tk.Button(item_row, text="VIEW", bg=BTN_YELLOW, fg="#000", width=10, font=FONT,
+                      relief="solid", borderwidth=1, command=view_detail).pack(side="right", padx=3)
+
 
 # ==================================================
 # ADD NEW USER — WITH HASHING & STRENGTH CHECK
@@ -253,9 +362,10 @@ def show_add_user():
             return
         
         if email:
-            import re
-            if not re.fullmatch(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', email):
-                messagebox.showwarning("Warning", "Please enter a valid email address!\nExample: name@domain.com")
+            import Main
+            valid_email, email_msg = Main.validate_email(email)
+            if not valid_email:
+                messagebox.showerror("Invalid Email", email_msg)
                 return
         
         if password != confirm:
@@ -543,9 +653,10 @@ def show_edit_user(username):
             return
 
         if new_email:
-            import re
-            if not re.fullmatch(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', new_email):
-                messagebox.showwarning("Warning", "Please enter a valid email address!\nExample: name@domain.com")
+            import Main
+            valid_email, email_msg = Main.validate_email(new_email)
+            if not valid_email:
+                messagebox.showerror("Invalid Email", email_msg)
                 return
 
         conn = get_db_connection()
@@ -629,12 +740,22 @@ def show_delete_confirm(username):
 # READING RECORDS & ACCOUNT
 # ==================================================
 def open_reading_records():
-    if not Main.current_user.get("is_admin", False):
-        messagebox.showwarning("Access Denied", "Only Admin can access Reading Records!")
+    import Main
+    user_role = Main.current_user.get("role", "")
+    is_admin = (user_role == "Admin")
+    
+    print(f"DEBUG: role = {user_role}, is_admin = {is_admin}")
+    
+    if not is_admin:
+        messagebox.showwarning(
+            "Access Denied",
+            "Only Admin can access Reading Records!\n\n"
+            f"Current User: {Main.current_user.get('username', 'Unknown')}\n"
+            f"Role: {user_role or 'Not set'}"
+        )
         return
     
-    import sys
-    import os
+    import sys, os
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
@@ -643,18 +764,11 @@ def open_reading_records():
         import AdminBorrow
         AdminBorrow.show_admin_borrow_screen()
     except ModuleNotFoundError as e:
-        messagebox.showerror(
-            "File Missing",
-            f"Cannot find AdminBorrow.py!\n\nError: {e}"
-        )
+        messagebox.showerror("File Missing", f"Cannot find AdminBorrow.py!\n\nError: {e}")
 
-def show_account_screen():
-    clear_all()
-    try:
-        import Account
-        Account.show_account_screen()
-    except Exception as e:
-        messagebox.showerror("Error", f"Cannot open Account:\n{e}")
+def show_admin_collection_screen():
+    import Collection
+    Collection.show_admin_collection_screen()
 
 # ==================================================
 # MAIN ADMIN DASHBOARD
@@ -674,7 +788,7 @@ def show_admin_dashboard():
     tk.Label(top_header, text="WELCOME — ADMIN",
              font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
 
-    tk.Button(top_header, text="🔔", font=16, bg=BG_CONTENT, fg=TEXT_DARK,
+    tk.Button(top_header, text="🔔", font=("Arial", 16), bg=BG_CONTENT, fg=TEXT_DARK,
               relief="flat", command=show_notifications).pack(side="right", padx=20)
 
     # SIDEBAR 
@@ -722,8 +836,8 @@ def show_admin_dashboard():
         ("Authors", open_authors),
         ("Categories", open_categories),
         ("Reading Records", open_reading_records),
-        ("My Collection", lambda: __import__("Collection").Collection.show_admin_collection_screen()),
-        ("Account", Main.open_account),
+        ("My Collection", show_admin_collection_screen),
+        ("Account", show_account_screen),
         ("Settings", Main.open_settings),
     ]
 

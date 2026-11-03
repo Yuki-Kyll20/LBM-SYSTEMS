@@ -26,8 +26,7 @@ FONT_HEADING = Main.FONT_HEADING
 # ==================================================
 # USER DASHBOARD
 # ==================================================
-
-def show_approved_request_detail():
+def show_approved_request_detail(record_id, book_title, date_started, date_due):
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
     frame.pack(fill="both", expand=True)
@@ -41,7 +40,7 @@ def show_approved_request_detail():
     tk.Label(box, text="APPROVED REQUEST DETAILS", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 25))
     
     tk.Label(box, text="Book Title:", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w")
-    tk.Label(box, text="Oshi Mayncrap", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 15))
+    tk.Label(box, text=book_title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 15))
     
     tk.Label(box, text="Status:", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w")
     status_frame = tk.Frame(box, bg=BTN_YELLOW, padx=10, pady=3)
@@ -49,17 +48,19 @@ def show_approved_request_detail():
     tk.Label(status_frame, text="Currently Reading", font=FONT, bg=BTN_YELLOW, fg="#000").pack()
     
     tk.Label(box, text="Started:", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w")
-    tk.Label(box, text="2026    12    11", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 15))
+    start_display = date_started.strftime("%Y   %m   %d") if date_started else "—"
+    tk.Label(box, text=start_display, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 15))
     
     tk.Label(box, text="Due Date:", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w")
-    tk.Label(box, text="2026    26    11", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
+    due_display = date_due.strftime("%Y   %m   %d") if date_due else "—"
+    tk.Label(box, text=due_display, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
     
     tk.Label(box, text="WHERE TO FIND:", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 5))
-    tk.Label(box, text="Reading Status & Records - \"Oshi Mayncrap\"", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w")
-    tk.Label(box, text="You can now update your progress here!", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
+    tk.Label(box, text="Reading Status & Records → " + book_title, font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w")
+    tk.Label(box, text="You can now update your reading progress there!", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
     
     tk.Button(box, text="Go To Record", bg=BTN_GREEN, fg=TEXT_DARK, width=18, font=FONT,
-              relief="solid", borderwidth=1, command=lambda: messagebox.showinfo("Go To Record", "Redirecting to Reading Records...")).pack(anchor="w")
+              relief="solid", borderwidth=1, command=show_reading_records).pack(anchor="w")
 
 def show_notifications():
     clear_all()
@@ -74,27 +75,127 @@ def show_notifications():
     
     tk.Label(box, text="NOTIFICATIONS", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
     
+    my_user_id = current_user["user_id"]
+    
+    # ========= APPROVED REQUESTS =========
     approved_frame = tk.Frame(box, bg="#d4edda", padx=15, pady=15, relief="solid", borderwidth=1)
     approved_frame.pack(fill="x", pady=(0, 10))
     tk.Label(approved_frame, text="APPROVED:", font=FONT_TITLE, bg="#d4edda", fg="#155724").pack(anchor="w")
-    tk.Label(approved_frame, text="Your request for \"Oshi Mayncrap\" - APPROVED!", 
-              font=FONT, bg="#d4edda", fg=TEXT_DARK).pack(anchor="w")
-    tk.Label(approved_frame, text="Start: Nov 12   |   Due: Nov 26", 
-              font=FONT, bg="#d4edda", fg=TEXT_DARK).pack(anchor="w", pady=(0, 5))
-    tk.Button(approved_frame, text="VIEW", bg=BTN_YELLOW, fg="#000", width=10, font=FONT,
-              relief="solid", borderwidth=1, command=show_approved_request_detail).pack(anchor="e")
     
+    conn = get_db_connection()
+    approved_list = []
+    if conn:
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT br.Record_ID, b.Title AS Book_Title, br.Date_Started AS Borrow_Date, br.Date_Finish AS Date_Returned
+                FROM borrow_records br
+                JOIN Books b ON br.Book_ID = b.Book_ID
+                WHERE br.User_ID = %s AND br.Status = 'Reading'
+                ORDER BY br.Date_Started DESC
+            """, (my_user_id,))
+            approved_list = cur.fetchall()
+        except Exception as e:
+            print(f"Approved error: {e}")
+        finally:
+            conn.close()
+    
+    if not approved_list:
+        tk.Label(approved_frame, text="No approved requests yet.", font=FONT, bg="#d4edda", fg=TEXT_DARK).pack(anchor="w")
+    else:
+        for item in approved_list:
+            aid = item['Record_ID']
+            atitle = item['Book_Title']
+            astart = item['Borrow_Date']
+            adue = item['Date_Returned']
+            
+            row = tk.Frame(approved_frame, bg="#d4edda")
+            row.pack(fill="x", pady=5)
+            
+            start_str = astart.strftime("%b %d") if astart else "—"
+            due_str = adue.strftime("%b %d") if adue else "—"
+            
+            tk.Label(row, text=f"Your request for \"{atitle}\" — APPROVED!", 
+                     font=FONT, bg="#d4edda", fg=TEXT_DARK).pack(anchor="w")
+            tk.Label(row, text=f"Start: {start_str}   |   Due: {due_str}", 
+                     font=FONT, bg="#d4edda", fg=TEXT_DARK).pack(anchor="w")
+            
+            def view_approved(rid=aid, bk=atitle, st=astart, du=adue):
+                show_approved_request_detail(rid, bk, st, du)
+            
+            tk.Button(row, text="VIEW", bg=BTN_YELLOW, fg="#000", width=10, font=FONT,
+                      relief="solid", borderwidth=1, command=view_approved).pack(anchor="e")
+    
+    # ========= REJECTED REQUESTS =========
     rejected_frame = tk.Frame(box, bg="#f8d7da", padx=15, pady=15, relief="solid", borderwidth=1)
     rejected_frame.pack(fill="x", pady=(0, 10))
-    tk.Label(rejected_frame, text="REJECTED:", font=FONT_TITLE, bg="#f8d7da", fg="#721c24").pack(anchor="w")
-    tk.Label(rejected_frame, text="Your request for \"Earth 616\" → Not Available", 
-              font=FONT, bg="#f8d7da", fg=TEXT_DARK).pack(anchor="w")
+    tk.Label(rejected_frame, text="REJECTED / CANCELLED:", font=FONT_TITLE, bg="#f8d7da", fg="#721c24").pack(anchor="w")
     
+    conn = get_db_connection()
+    rejected_list = []
+    if conn:
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT br.Record_ID, b.Title AS Book_Title
+                FROM borrow_records br
+                JOIN Books b ON br.Book_ID = b.Book_ID
+                WHERE br.User_ID = %s AND br.Status = 'Dropped'
+                ORDER BY br.Record_ID DESC LIMIT 5
+            """, (my_user_id,))
+
+            rejected_list = cur.fetchall()
+        except Exception as e:
+            print(f"Rejected error: {e}")
+        finally:
+            conn.close()
+    
+    if not rejected_list:
+        tk.Label(rejected_frame, text="No rejected requests.", font=FONT, bg="#f8d7da", fg=TEXT_DARK).pack(anchor="w")
+    else:
+        for item in rejected_list:
+            tk.Label(rejected_frame, text=f"• \"{item['Book_Title']}\" — Not Available / Cancelled",
+                     font=FONT, bg="#f8d7da", fg=TEXT_DARK).pack(anchor="w", pady=3)
+    
+    # ========= UPCOMING / DUE SOON =========
     upcoming_frame = tk.Frame(box, bg="#fff3cd", padx=15, pady=15, relief="solid", borderwidth=1)
     upcoming_frame.pack(fill="x")
-    tk.Label(upcoming_frame, text="COMING UP:", font=FONT_TITLE, bg="#fff3cd", fg="#856404").pack(anchor="w")
-    tk.Label(upcoming_frame, text="\"1984\" — Due in 3 days (Oct 4)", 
-              font=FONT, bg="#fff3cd", fg=TEXT_DARK).pack(anchor="w")
+    tk.Label(upcoming_frame, text="COMING UP / DUE SOON:", font=FONT_TITLE, bg="#fff3cd", fg="#856404").pack(anchor="w")
+    
+    from datetime import datetime, timedelta
+    conn = get_db_connection()
+    due_list = []
+    if conn:
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT b.Title AS Book_Title, br.Date_Finish AS Date_Returned
+                FROM borrow_records br
+                JOIN Books b ON br.Book_ID = b.Book_ID
+                WHERE br.User_ID = %s AND br.Status = 'Reading' AND br.Date_Returned IS NOT NULL
+                ORDER BY br.Date_Returned ASC LIMIT 3
+            """, (my_user_id,))
+
+            due_list = cur.fetchall()
+        except Exception as e:
+            print(f"Due error: {e}")
+        finally:
+            conn.close()
+    
+    if not due_list:
+        tk.Label(upcoming_frame, text="No upcoming due dates.", font=FONT, bg="#fff3cd", fg=TEXT_DARK).pack(anchor="w")
+    else:
+        for item in due_list:
+            days_left = (item['Date_Returned'] - datetime.now()).days
+            if days_left < 0:
+                label = f"⚠️ OVERDUE: \"{item['Book_Title']}\" — {-days_left} day(s) late!"
+            elif days_left == 0:
+                label = f"⚠️ DUE TODAY: \"{item['Book_Title']}\""
+            else:
+                label = f"\"{item['Book_Title']}\" — Due in {days_left} day(s)"
+
+            tk.Label(upcoming_frame, text=label, font=FONT, bg="#fff3cd", fg=TEXT_DARK).pack(anchor="w", pady=3)
+
 
 def show_books():
     clear_all()
@@ -123,8 +224,8 @@ def show_categories():
 def show_reading_records():
     clear_all()
     try:
-        import UserBorrow  # ← matches your actual filename
-        UserBorrow.show_user_borrow_screen()  # ← matches your actual function name
+        import UserBorrow
+        UserBorrow.show_user_borrow_screen()
     except ModuleNotFoundError:
         messagebox.showerror("Error", "UserBorrow.py not found!\nCheck filename and folder.")
 
@@ -137,13 +238,18 @@ def show_my_collection():
         messagebox.showerror("Error", "user_Collection.py not found!\nCheck filename and folder.")
 
 def show_account():
-    Main.open_account()
+    clear_all()
+    try:
+        import Account
+        Account.show_account_screen()
+    except Exception as e:
+        messagebox.showerror("Error", f"Cannot open Account:\n{e}")
 
 def show_settings():
     Main.open_settings()
 
 # ==================================================
-# MAIN USER DASHBOARD — FIXED
+# MAIN USER DASHBOARD
 # ==================================================
 def show_user_dashboard():
     clear_all()
@@ -159,7 +265,7 @@ def show_user_dashboard():
     tk.Label(top_header, text=f"WELCOME - USER", 
              font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=20, pady=12)
     
-    tk.Button(top_header, text="🔔", font=16, bg=BG_CONTENT, fg=TEXT_DARK,
+    tk.Button(top_header, text="🔔", font=("Arial", 16), bg=BG_CONTENT, fg=TEXT_DARK,
               relief="flat", command=show_notifications).pack(side="right", padx=20)
     
     # ========= SIDEBAR =========
@@ -217,35 +323,35 @@ def show_user_dashboard():
     
     books_card = tk.Frame(stats_row, **card_style)
     books_card.pack(side="left", padx=5)
-    tk.Label(books_card, text="📚 Books", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
+    tk.Label(books_card, text="Books", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
     tk.Label(books_card, text=f"[{book_count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=3)
     
     authors_card = tk.Frame(stats_row, **card_style)
     authors_card.pack(side="left", padx=5)
-    tk.Label(authors_card, text="✍️ Authors", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
+    tk.Label(authors_card, text="Authors", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
     tk.Label(authors_card, text=f"[{author_count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=3)
     
     cat_card = tk.Frame(stats_row, **card_style)
     cat_card.pack(side="left", padx=5)
-    tk.Label(cat_card, text="📁 Categories", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
+    tk.Label(cat_card, text="Categories", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
     tk.Label(cat_card, text=f"[{cat_count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=3)
     
     rec_card = tk.Frame(stats_row, **card_style)
     rec_card.pack(side="left", padx=5)
-    tk.Label(rec_card, text="⭐ Records", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
+    tk.Label(rec_card, text="Records", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack()
     tk.Label(rec_card, text=f"[{rec_count}]", font=FONT_TITLE, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=3)
     
     search_frame = tk.Frame(content, bg=BG_CONTENT, padx=15, pady=12, relief="solid", borderwidth=1)
     search_frame.pack(pady=5, padx=20, fill="x")
     
-    tk.Label(search_frame, text="🔍 Quick Search:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=(0, 10))
+    tk.Label(search_frame, text="Quick Search:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left", padx=(0, 10))
     search_entry = tk.Entry(search_frame, width=50, font=FONT)
     search_entry.pack(side="left")
     
     activity_frame = tk.Frame(content, bg=BG_CONTENT, padx=15, pady=15, relief="solid", borderwidth=1)
     activity_frame.pack(pady=15, padx=20, fill="both", expand=True)
     
-    tk.Label(activity_frame, text="📈 RECENT ACTIVITY / OVERVIEW", font=FONT_TITLE, 
+    tk.Label(activity_frame, text="RECENT ACTIVITY / OVERVIEW", font=FONT_TITLE, 
              bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 10))
     
     header_row = tk.Frame(activity_frame, bg=BG_CONTENT)

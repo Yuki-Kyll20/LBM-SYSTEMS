@@ -1,4 +1,3 @@
-from email import header
 import tkinter as tk
 from tkinter import messagebox, ttk
 import Main
@@ -391,13 +390,13 @@ def load_dropdowns(author_select, cat_select):
         authors = cur.fetchall()
         author_select['values'] = [f"{a[0]} - {a[1]}" for a in authors]
         if authors:
-            author_select.set("-- Select Author --")
+            author_select.current(0)
         
         cur.execute("SELECT Category_ID, Category_Name FROM categories ORDER BY Category_Name")
         categories = cur.fetchall()
         cat_select['values'] = [f"{c[0]} - {c[1]}" for c in categories]
         if categories:
-            cat_select.set("-- Select Category --")
+            cat_select.current(0)
     except Exception as e:
         print(f"Dropdown error: {e}")
     finally:

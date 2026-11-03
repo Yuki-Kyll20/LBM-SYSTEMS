@@ -103,7 +103,6 @@ def show_authors_screen():
 # ==================================================
 def render_authors_list(data_list, parent_frame=None):
     global selected_author_index
-    # Clear rows
     for w in parent_frame.winfo_children():
         if w.cget("bg") not in ["#d4b86a", "#7B2CBF"]:
             w.destroy()
@@ -119,29 +118,36 @@ def render_authors_list(data_list, parent_frame=None):
         row.pack(fill="x")
         
         def make_select(i=idx, r=row):
-            def select_this():
+            def select_this(e):
                 global selected_author_index
                 selected_author_index = i
                 for w in parent_frame.winfo_children():
                     if isinstance(w, tk.Frame) and w.cget("cursor") == "hand2":
                         w.configure(bg=BG_CARD)
+                        for child in w.winfo_children():
+                            if isinstance(child, tk.Label):
+                                child.configure(bg=BG_CARD)
                 r.configure(bg="#e5d9b6")
+                for child in r.winfo_children():
+                    if isinstance(child, tk.Label):
+                        child.configure(bg="#e5d9b6")
             return select_this
-        row.bind("<Button-1>", lambda e, f=make_select(idx): f())
+        row.bind("<Button-1>", make_select(idx, row))
 
         # ID
-        tk.Label(row, text=str(author_id), font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
-                 width=6, anchor="w").pack(side="left", padx=5)
+        tk.Label(row, text=str(author_id), font=FONT, bg=BG_CARD, fg=TEXT_DARK,
+                width=6, anchor="w").pack(side="left", padx=5)
         # Full Name
-        tk.Label(row, text=fullname or "", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
-                 width=25, anchor="w").pack(side="left", padx=5)
-        # Biography
+        tk.Label(row, text=fullname or "", font=FONT, bg=BG_CARD, fg=TEXT_DARK,
+                width=25, anchor="w").pack(side="left", padx=5)
+        # Biography — truncate long text
         bio_short = (bio[:30] + "...") if bio and len(bio) > 30 else (bio or "")
-        tk.Label(row, text=bio_short, font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
-                 width=35, anchor="w").pack(side="left", padx=5)
+        tk.Label(row, text=bio_short, font=FONT, bg=BG_CARD, fg=TEXT_DARK,
+                width=35, anchor="w").pack(side="left", padx=5)
         # Book Count
-        tk.Label(row, text=f"{book_count} Books", font=FONT, bg=row.cget("bg"), fg=TEXT_DARK,
-                 width=12, anchor="e").pack(side="right", padx=10)
+        tk.Label(row, text=f"{book_count} Books", font=FONT, bg=BG_CARD, fg=TEXT_DARK,
+                width=12, anchor="e").pack(side="right", padx=10)
+
 
 def filter_authors(search_text):
     search_text = search_text.strip().lower()
@@ -215,11 +221,11 @@ def show_author_form_screen(author_data=None):
     form_entries["Biography"] = bio_text
     
     if author_data:
-        name_parts = (author_data[1] or "").split(", ", 1)
-        if len(name_parts) == 2:
-            last, first = name_parts
+        full_name = author_data[1] or ""
+        if ", " in full_name:
+            last, first = full_name.split(", ", 1)
         else:
-            first = author_data[1] or ""
+            first = full_name
             last = ""
         form_entries["First Name"].insert(0, first.strip())
         form_entries["Last Name"].insert(0, last.strip())

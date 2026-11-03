@@ -144,19 +144,17 @@ class DatePicker:
 # ==================================================
 def show_admin_borrow_screen():
     username = Main.current_user.get("username", "")
-    role = Main.current_user.get("role", "")
-    is_admin_flag = Main.current_user.get("is_admin", False)
-
-    is_admin = (role == "Admin") or (is_admin_flag == True)
+    
+    # ✅ SAME CHECK EVERYWHERE
+    is_admin = Main.current_user.get("is_admin", False)
+    
+    print(f"AdminBorrow — is_admin = {is_admin} | User = {username}")
     
     if not is_admin:
         messagebox.showerror(
             "Access Denied",
-            "Only Admin can access Reading Records!\n\n"
-            f"Current User: {username}\n"
-            f"Role from session: {role}\n"
-            f"is_admin flag: {is_admin_flag}\n\n"
-            f"Role should be: Admin"
+            f"Only Admin can access Reading Records!\n\n"
+            f"Username: {username}"
         )
         Main.show_navigation_dashboard()
         return
@@ -276,10 +274,11 @@ def render_borrow_rows(parent_frame, filtered_list=None):
         tk.Label(row, text=status or "", font=FONT, bg=status_bg, fg=TEXT_DARK,
                  width=12, anchor="center", relief="solid", borderwidth=1).pack(side="left", padx=5)
         
-        tk.Label(row, text=date_started.strftime("%Y-%m-%d") if date_started else "", 
-                 font=FONT, bg="#f7e797", fg=TEXT_DARK, width=12, anchor="w").pack(side="left", padx=5)
-        tk.Label(row, text=date_finished.strftime("%Y-%m-%d") if date_finished else "", 
-                 font=FONT, bg="#f7e797", fg=TEXT_DARK, width=12, anchor="w").pack(side="left", padx=5)
+        ds_text = date_started.strftime("%Y-%m-%d") if (date_started and hasattr(date_started, 'strftime')) else ""
+        df_text = date_finished.strftime("%Y-%m-%d") if (date_finished and hasattr(date_finished, 'strftime')) else ""
+
+        tk.Label(row, text=ds_text, font=FONT, bg="#f7e797", fg=TEXT_DARK, width=12, anchor="w").pack(side="left", padx=5)
+        tk.Label(row, text=df_text, font=FONT, bg="#f7e797", fg=TEXT_DARK, width=12, anchor="w").pack(side="left", padx=5)
         
         action_frame = tk.Frame(row, bg="#f7e797")
         action_frame.pack(side="right", padx=5)
@@ -327,32 +326,24 @@ def load_borrow_from_db():
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT br.Record_ID, u.Username, b.Book_Title, br.Status, 
+            SELECT br.Record_ID, u.Username, b.Book_Title, br.Reading_Status,
                    br.Borrow_Date, br.Date_Returned
             FROM borrow_records br
             JOIN User u ON br.User_ID = u.User_ID
             JOIN books b ON br.Book_ID = b.Book_ID
             ORDER BY br.Borrow_Date DESC
         """)
+
         borrow_data = cur.fetchall()
+        # ✅ Debug: print to console
+        print(f"Loaded {len(borrow_data)} records")
+        for rec in borrow_data:
+            print(f"Status: [{rec[3]}] — {rec[2]}")
     except Exception as e:
         messagebox.showerror("Load Error", f"Could not load records:\n{e}")
     finally:
         conn.close()
 
-def approve_borrow(rec_id):
-    conn = get_db_connection()
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("UPDATE borrow_records SET Status = 'Reading' WHERE Record_ID = %s", (rec_id,))
-            conn.commit()
-            messagebox.showinfo("Approved", "Book approved! User can now read it.")
-            show_admin_borrow_screen()
-        except Exception as e:
-            messagebox.showerror("Error", f"Approve failed:\n{e}")
-        finally:
-            conn.close()
 
 def update_status(rec_id, new_status):
     conn = get_db_connection()
@@ -362,11 +353,15 @@ def update_status(rec_id, new_status):
             if new_status == "Completed":
                 cur.execute("""
                     UPDATE borrow_records 
-                    SET Status = %s, Date_Returned = CURDATE() 
+                    SET Reading_Status = %s, Date_Returned = CURDATE() 
                     WHERE Record_ID = %s
                 """, (new_status, rec_id))
             else:
-                cur.execute("UPDATE borrow_records SET Status = %s WHERE Record_ID = %s", (new_status, rec_id))
+                cur.execute("""
+                    UPDATE borrow_records 
+                    SET Reading_Status = %s 
+                    WHERE Record_ID = %s
+                """, (new_status, rec_id))
             conn.commit()
             messagebox.showinfo("Updated", f"Status changed to: {new_status}")
             show_admin_borrow_screen()
@@ -378,6 +373,7 @@ def update_status(rec_id, new_status):
 def add_borrow_book():
     clear_all()
     
+    # ✅ Wider form frame
     frame = tk.Frame(root, bg="#f7e797", width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
@@ -397,59 +393,86 @@ def add_borrow_book():
     tk.Label(title_bar, text="ADD BOOKS & RECORD", font=FONT_HEADING,
              bg="#e8d590", fg=TEXT_DARK).pack(anchor="w")
     
-    # ========= FORM CONTAINER =========
-    form_box = tk.Frame(frame, bg="#f7e797", padx=30, pady=25, relief="solid", borderwidth=1)
-    form_box.pack(padx=20, fill="x")
+    # ✅ FIXED: Wider form box + scrollable
+    form_canvas = tk.Canvas(frame, bg="#f7e797", highlightthickness=0)
+    form_scroll = tk.Scrollbar(frame, orient="vertical", command=form_canvas.yview)
+    form_box = tk.Frame(form_canvas, bg="#f7e797", padx=30, pady=25)
     
-    # --- Select Book ---
+    form_box.bind("<Configure>", lambda e: form_canvas.configure(scrollregion=form_canvas.bbox("all")))
+    form_canvas.create_window((0, 0), window=form_box, anchor="nw", width=850)
+    form_canvas.configure(yscrollcommand=form_scroll.set)
+    
+    form_canvas.pack(side="left", fill="both", expand=True, padx=20)
+    form_scroll.pack(side="right", fill="y")
+    
+    # --- Select Book — Wider dropdown ---
     tk.Label(form_box, text="Select Book:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
     
     conn = get_db_connection()
     book_titles = []
+    debug_msg = ""
     if conn:
         try:
             cur = conn.cursor()
-            cur.execute("SELECT Book_Title FROM books ORDER BY Book_Title")
+            cur.execute("DESCRIBE books")
+            cols = [c[0] for c in cur.fetchall()]
+            debug_msg = f"Books columns: {', '.join(cols)}\n"
+            
+            if "Book_Title" in cols:
+                cur.execute("SELECT Book_Title FROM books ORDER BY Book_Title")
+            elif "Title" in cols:
+                cur.execute("SELECT Title FROM books ORDER BY Title")
+            else:
+                raise Exception(f"No title column found in books! Columns: {cols}")
+            
             book_titles = [row[0] for row in cur.fetchall()]
+            debug_msg += f"Found {len(book_titles)} books"
+            
         except Exception as e:
-            messagebox.showerror("Error", f"Cannot load books:\n{e}")
+            messagebox.showerror("DB Error", f"Cannot load books:\n{debug_msg}\n{e}")
         finally:
             conn.close()
+    else:
+        messagebox.showerror("Error", "No database connection!")
     
     book_var = tk.StringVar()
     book_select = ttk.Combobox(form_box, textvariable=book_var,
-                               values=book_titles, font=FONT, width=30)
+                              values=book_titles, font=FONT, width=55)  # ← MUCH WIDER
     book_select.pack(pady=(2, 12))
+    
+    if not book_titles:
+        tk.Label(form_box, text="⚠ No books found! Add books to the 'books' table first.", 
+                 font=FONT, bg="#ffcccc", fg="red", padx=10, pady=5).pack(pady=(0, 10))
     
     # --- Status ---
     tk.Label(form_box, text="Status:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-    status_var = tk.StringVar(value="Pending Approval")
+    status_var = tk.StringVar(value="Pending")
     status_select = ttk.Combobox(form_box, textvariable=status_var,
-                                 values=["Pending Approval", "Unread", "Reading", "On Hold", "Completed", "Dropped"],
-                                 font=FONT, width=30, state="readonly")
+                                 values=["Pending", "Unread", "Reading", "On Hold", "Completed", "Dropped"],
+                                 font=FONT, width=55, state="readonly")  # ← Wider
     status_select.pack(pady=(2, 12))
     
     # --- Date Started ---
     tk.Label(form_box, text="Date Started:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-    date_started_picker = DatePicker(form_box, default_text="YYYY-MM-DD", width=30)
+    date_started_picker = DatePicker(form_box, default_text="YYYY-MM-DD", width=45)
     date_started_picker.pack(anchor="w", pady=(2, 12))
     
     # --- Date Finished ---
     tk.Label(form_box, text="Date Finished:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-    date_finished_picker = DatePicker(form_box, default_text="YYYY-MM-DD", width=30)
+    date_finished_picker = DatePicker(form_box, default_text="YYYY-MM-DD", width=45)
     date_finished_picker.pack(anchor="w", pady=(2, 12))
     
     # --- Rate ---
     tk.Label(form_box, text="Rate:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
     rate_var = tk.StringVar(value="---/5")
     rate_select = ttk.Combobox(form_box, textvariable=rate_var,
-                               values=["---/5", "1/5", "2/5", "3/5", "4/5", "5/5"],
-                               font=FONT, width=30, state="readonly")
+                              values=["---/5", "1/5", "2/5", "3/5", "4/5", "5/5"],
+                              font=FONT, width=55, state="readonly")  # ← Wider
     rate_select.pack(pady=(2, 12))
     
-    # --- Notes ---
+    # --- Notes — Wider input ---
     tk.Label(form_box, text="Notes:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_notes = tk.Entry(form_box, width=33, font=FONT)
+    e_notes = tk.Entry(form_box, width=55, font=FONT)  # ← Wider
     e_notes.pack(pady=(2, 20))
     
     # ========= BUTTONS =========
@@ -477,15 +500,17 @@ def add_borrow_book():
         try:
             cur = conn.cursor()
             
-            # Get Book_ID
-            cur.execute("SELECT Book_ID FROM books WHERE Book_Title = %s", (book_title,))
+            cur.execute("DESCRIBE books")
+            cols = [c[0] for c in cur.fetchall()]
+            title_col = "Book_Title" if "Book_Title" in cols else "Title"
+            
+            cur.execute(f"SELECT Book_ID FROM books WHERE {title_col} = %s", (book_title,))
             book_result = cur.fetchone()
             if not book_result:
                 messagebox.showerror("Error", "Book not found in database!")
                 return
             book_id = book_result[0]
             
-            # Get current admin's User_ID
             cur.execute("SELECT User_ID FROM User WHERE Username = %s", (Main.current_user["username"],))
             user_result = cur.fetchone()
             if not user_result:
@@ -493,16 +518,13 @@ def add_borrow_book():
                 return
             user_id = user_result[0]
             
-            # Map "Pending Approval" → "Pending" for DB
-            db_status = "Pending" if status == "Pending Approval" else status
-            
-            # Insert record
             cur.execute("""
                 INSERT INTO borrow_records 
-                (User_ID, Book_ID, Status, Borrow_Date, Date_Returned, Book_Rating, Book_Review)
+                (User_ID, Book_ID, Reading_Status, Borrow_Date, Date_Returned, Book_Rating, Book_Review)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
-                user_id, book_id, db_status, date_started,
+                user_id, book_id, status,
+                date_started,
                 date_finished if date_finished else None,
                 rating if rating != "---/5" else None,
                 notes if notes else None
@@ -526,20 +548,20 @@ def add_borrow_book():
               command=show_admin_borrow_screen).grid(row=0, column=1, padx=10)
 
 def view_record(rec_id):
-    """Show detailed popup — matches your design exactly"""
     conn = get_db_connection()
     if not conn:
         return
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT br.Record_ID, u.Username, b.Book_Title, br.Status, 
+            SELECT br.Record_ID, u.Username, b.Book_Title, br.Reading_Status,
                    br.Borrow_Date, br.Date_Returned, br.Book_Rating, br.Book_Review
             FROM borrow_records br
             JOIN User u ON br.User_ID = u.User_ID
             JOIN books b ON br.Book_ID = b.Book_ID
             WHERE br.Record_ID = %s
         """, (rec_id,))
+
         result = cur.fetchone()
         
         if not result:
@@ -548,25 +570,42 @@ def view_record(rec_id):
         
         rec_id, username, book_title, status, date_started, date_finished, rating, review = result
         
-        # Popup window
+        # ✅ FIXED: Wider window + allow resizing
         view_win = tk.Toplevel(root)
         view_win.title(f"VIEW RECORD - {book_title}")
-        view_win.geometry("300x360")
+        view_win.geometry("520x520")  # ← WIDER & TALLER
+        view_win.minsize(480, 480)     # ← Minimum size
         view_win.configure(bg="#f7e797")
         view_win.transient(root)
         view_win.grab_set()
-        view_win.resizable(False, False)
-        
+        view_win.resizable(True, True)  # ← Allow resize
+
         # Title bar
         title_bar = tk.Frame(view_win, bg="#e8d590", padx=15, pady=10, relief="solid", borderwidth=1)
         title_bar.pack(fill="x")
         tk.Label(title_bar, text=f"VIEW RECORD - {book_title}", 
                  font=("Arial", 11, "bold"), bg="#e8d590", fg=TEXT_DARK).pack(anchor="w")
-        
-        # Content
-        content = tk.Frame(view_win, bg="#f7e797", padx=20, pady=15)
-        content.pack(fill="both", expand=True)
-        
+
+        # ✅ FIXED: Proper scrollable area
+        canvas = tk.Canvas(view_win, bg="#f7e797", highlightthickness=0)
+        scrollbar = tk.Scrollbar(view_win, orient="vertical", command=canvas.yview)
+        content = tk.Frame(canvas, bg="#f7e797", padx=25, pady=15)
+
+        def on_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        content.bind("<Configure>", on_configure)
+        canvas.create_window((0, 0), window=content, anchor="nw", width=460)  # ← Wider content area
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel scroll
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        view_win.bind_all("<MouseWheel>", _on_mousewheel)
+
         def get_stars(rating_val):
             if not rating_val or rating_val in ["---/5", ""]:
                 return "Not rated yet"
@@ -575,49 +614,50 @@ def view_record(rec_id):
                 return "⭐" * num
             except:
                 return str(rating_val)
-        
+
         # --- Username ---
         tk.Label(content, text="Username:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
         tk.Label(content, text=username, font=FONT, bg="white", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, padx=8, pady=4, anchor="w").pack(fill="x", pady=(0, 10))
-        
-        # --- Book Title ---
+
+        # --- Book Title — Wrapped properly ---
         tk.Label(content, text="Book Title:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
         tk.Label(content, text=book_title, font=FONT, bg="white", fg=TEXT_DARK,
-                 relief="solid", borderwidth=1, padx=8, pady=4, anchor="w").pack(fill="x", pady=(0, 10))
-        
+                 relief="solid", borderwidth=1, padx=8, pady=4, anchor="w",
+                 wraplength=440).pack(fill="x", pady=(0, 10))  # ← Wraps long titles
+
         # --- Status ---
         tk.Label(content, text="Status:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
         tk.Label(content, text=status, font=FONT, bg="white", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, padx=8, pady=4, anchor="w").pack(fill="x", pady=(0, 10))
-        
-        # --- Date Started ---
+
+        ds_text = date_started.strftime("%Y-%m-%d") if (date_started and hasattr(date_started, 'strftime')) else "—"
+        df_text = date_finished.strftime("%Y-%m-%d") if (date_finished and hasattr(date_finished, 'strftime')) else "Not finished"
+
         tk.Label(content, text="Date Started:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-        tk.Label(content, text=date_started.strftime("%Y-%m-%d") if date_started else "—", 
-                 font=FONT, bg="white", fg=TEXT_DARK,
+        tk.Label(content, text=ds_text, font=FONT, bg="white", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, padx=8, pady=4, anchor="w").pack(fill="x", pady=(0, 10))
-        
-        # --- Date Finished ---
+
         tk.Label(content, text="Date Finished:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-        tk.Label(content, text=date_finished.strftime("%Y-%m-%d") if date_finished else "Not finished", 
-                 font=FONT, bg="white", fg=TEXT_DARK,
+        tk.Label(content, text=df_text, font=FONT, bg="white", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, padx=8, pady=4, anchor="w").pack(fill="x", pady=(0, 10))
-        
+
         # --- Rating ---
         tk.Label(content, text="Rating:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
         tk.Label(content, text=get_stars(rating), font=FONT, bg="white", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, padx=8, pady=4, anchor="w").pack(fill="x", pady=(0, 10))
-        
+
         # --- Notes ---
         tk.Label(content, text="Notes:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
         tk.Label(content, text=review or "No notes added", font=FONT, bg="white", fg=TEXT_DARK,
-                 relief="solid", borderwidth=1, padx=8, pady=4, anchor="w", wraplength=220).pack(fill="x", pady=(0, 15))
-        
+                 relief="solid", borderwidth=1, padx=8, pady=4, anchor="w",
+                 wraplength=440).pack(fill="x", pady=(0, 15))
+
         # BACK Button
-        tk.Button(view_win, text="BACK", bg=BTN_BROWN, fg="white", width=12,
-                  relief="solid", borderwidth=1, font=("Arial", 10, "bold"),
-                  command=view_win.destroy).pack(pady=(0, 10))
-        
+        tk.Button(content, text="BACK", bg=BTN_BROWN, fg="white", width=12,
+                 relief="solid", borderwidth=1, font=("Arial", 10, "bold"),
+                 command=lambda: [view_win.destroy(), view_win.unbind_all("<MouseWheel>")]).pack(pady=(10, 15))
+
     except Exception as e:
         messagebox.showerror("Error", f"Could not load record:\n{e}")
     finally:

@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 import Main
 
 # ========== SHORTCUTS ==========
@@ -19,7 +19,7 @@ FONT_TITLE = Main.FONT_TITLE
 FONT_HEADING = Main.FONT_HEADING
 
 # ==================================================
-# ADMIN COLLECTION — Shows All Users + Status + Delete
+# ADMIN COLLECTION — Matches YOUR Table Structure
 # ==================================================
 def show_admin_collection_screen():
     clear_all()
@@ -52,7 +52,7 @@ def show_admin_collection_screen():
     headers = ["USER NAME", "BOOK TITLE", "ADDED DATE", "ACTIONS"]
     for col, h in enumerate(headers):
         tk.Label(table_frame, text=h, font=FONT, bg="#e8d5b0", fg=TEXT_DARK,
-                 relief="solid", borderwidth=1, width=18).grid(row=0, column=col, sticky="nsew", padx=1, pady=1)
+                 relief="solid", borderwidth=1, width=20).grid(row=0, column=col, sticky="nsew", padx=1, pady=1)
 
     # Load data
     def load_data():
@@ -66,13 +66,17 @@ def show_admin_collection_screen():
         try:
             cur = conn.cursor()
             cur.execute("""
-                SELECT c.User_Name, c.Book_Title, c.Added_Date, c.Status, c.ID
-                FROM collection c ORDER BY c.Added_Date DESC
+                SELECT c.User_Name, c.Book_Title, c.Added_Date, c.Status, c.Collection_ID
+                FROM collection c
+                ORDER BY c.Added_Date DESC
             """)
             rows = cur.fetchall()
 
             for idx, row in enumerate(rows, start=1):
                 uname, btitle, adate, status, rec_id = row
+
+                display_status = "[ACTIVE]" if status == "Active" else "[IN-ACTIVE]"
+                status_color = BTN_GREEN if status == "Active" else BTN_RED
 
                 tk.Label(table_frame, text=uname, font=FONT, bg="#fff3d4", fg=TEXT_DARK,
                          relief="solid", borderwidth=1).grid(row=idx, column=0, sticky="nsew", padx=1, pady=1)
@@ -84,17 +88,18 @@ def show_admin_collection_screen():
                 # Status + Delete
                 action_frame = tk.Frame(table_frame, bg="#fff3d4")
                 action_frame.grid(row=idx, column=3, sticky="nsew", padx=1, pady=1)
-                status_color = BTN_GREEN if status == "Active" else BTN_RED
-                tk.Button(action_frame, text=f"[{status.upper()}]", bg=status_color, fg=TEXT_DARK,
-                          font=FONT, width=10, relief="solid", borderwidth=1).pack(pady=1)
+                
+                tk.Label(action_frame, text=display_status, bg=status_color, fg=TEXT_DARK,
+                         font=FONT, relief="solid", borderwidth=1).pack(pady=1, fill="x")
                 tk.Button(action_frame, text="DELETE", bg=BTN_RED, fg="white",
-                          font=FONT, width=10, relief="solid", borderwidth=1,
-                          command=lambda rid=rec_id: delete_record(rid)).pack(pady=1)
+                         font=FONT, relief="solid", borderwidth=1,
+                         command=lambda rid=rec_id: delete_record(rid)).pack(pady=1, fill="x")
 
-            # Empty row if no data
+            # Empty row if no data — improved message
             if not rows:
-                tk.Label(table_frame, text="...", font=FONT, bg="#fff3d4", fg=TEXT_DARK,
-                         relief="solid", borderwidth=1).grid(row=1, column=0, columnspan=4, sticky="nsew")
+                tk.Label(table_frame, text="No books in collection yet.",
+                         font=FONT, bg="#fff3d4", fg=TEXT_DARK,
+                         relief="solid", borderwidth=1).grid(row=1, column=0, columnspan=4, sticky="nsew", pady=20)
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -108,7 +113,7 @@ def show_admin_collection_screen():
         if conn:
             try:
                 cur = conn.cursor()
-                cur.execute("DELETE FROM collection WHERE ID=%s", (rec_id,))
+                cur.execute("DELETE FROM collection WHERE Collection_ID=%s", (rec_id,))
                 conn.commit()
                 messagebox.showinfo("Deleted", "Record removed from collection")
                 load_data()
