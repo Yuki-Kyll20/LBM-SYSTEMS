@@ -29,7 +29,7 @@ def show_settings_screen():
     main_frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     main_frame.pack(fill="both", expand=True)
     
-    # ---------- HEADER — MATCH YOUR DESIGN EXACTLY ----------
+    # ---------- HEADER ----------
     header_frame = tk.Frame(main_frame, bg="#f7e797", padx=15, pady=12, relief="solid", borderwidth=2)
     header_frame.pack(fill="x", padx=20, pady=20)
     
@@ -37,7 +37,7 @@ def show_settings_screen():
     tk.Label(header_frame, text=f"WELCOME — {role_label}", 
              font=FONT_HEADING, bg="#f7e797", fg=TEXT_DARK).pack(side="left")
     
-    # ---------- SIDEBAR — MATCH YOUR DESIGN EXACTLY ----------
+    # ---------- SIDEBAR ----------
     sidebar = tk.Frame(main_frame, bg=BG_SIDEBAR, width=220, padx=5, pady=15)
     sidebar.pack(side="left", fill="y")
     sidebar.pack_propagate(False)
@@ -78,17 +78,44 @@ def show_settings_screen():
     pass_card = tk.Frame(content, bg="#f7e797", padx=30, pady=25, relief="solid", borderwidth=2)
     pass_card.pack(fill="x", padx=10, pady=(0, 20))
 
+    # --- Current Password ---
     tk.Label(pass_card, text="Current Password:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_current = tk.Entry(pass_card, font=FONT, width=40, show="*", bg="white")
-    e_current.pack(pady=(3, 12))
+    curr_frame = tk.Frame(pass_card, bg="#f7e797")
+    curr_frame.pack(fill="x", pady=(3, 12))
+    e_current = tk.Entry(curr_frame, font=FONT, width=32, show="*", bg="white")
+    e_current.pack(side="left")
+    show_curr = tk.BooleanVar(value=False)
+    def toggle_curr():
+        show_curr.set(not show_curr.get())
+        e_current.configure(show="" if show_curr.get() else "*")
+    tk.Button(curr_frame, text="👁", width=3, command=toggle_curr,
+              relief="flat", bg="#ddd").pack(side="right", padx=(5, 0))
 
+    # --- New Password ---
     tk.Label(pass_card, text="New Password:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_new = tk.Entry(pass_card, font=FONT, width=40, show="*", bg="white")
-    e_new.pack(pady=(3, 12))
+    new_frame = tk.Frame(pass_card, bg="#f7e797")
+    new_frame.pack(fill="x", pady=(3, 12))
+    e_new = tk.Entry(new_frame, font=FONT, width=32, show="*", bg="white")
+    e_new.pack(side="left")
+    show_new = tk.BooleanVar(value=False)
+    def toggle_new():
+        show_new.set(not show_new.get())
+        e_new.configure(show="" if show_new.get() else "*")
+    tk.Button(new_frame, text="👁", width=3, command=toggle_new,
+              relief="flat", bg="#ddd").pack(side="right", padx=(5, 0))
 
+    # --- Confirm Password ---
     tk.Label(pass_card, text="Confirm Password:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
-    e_confirm = tk.Entry(pass_card, font=FONT, width=40, show="*", bg="white")
-    e_confirm.pack(pady=(3, 12))
+    conf_frame = tk.Frame(pass_card, bg="#f7e797")
+    conf_frame.pack(fill="x", pady=(3, 12))
+    e_confirm = tk.Entry(conf_frame, font=FONT, width=32, show="*", bg="white")
+    e_confirm.pack(side="left")
+    show_conf = tk.BooleanVar(value=False)
+    def toggle_conf():
+        show_conf.set(not show_conf.get())
+        e_confirm.configure(show="" if show_conf.get() else "*")
+    tk.Button(conf_frame, text="👁", width=3, command=toggle_conf,
+              relief="flat", bg="#ddd").pack(side="right", padx=(5, 0))
     
     def change_password():
         import hashlib
@@ -124,10 +151,24 @@ def show_settings_screen():
             new_hashed = hashlib.sha256(new_p.encode('utf-8')).hexdigest()
             cur.execute("UPDATE User SET Password=%s WHERE User_ID=%s", (new_hashed, user_id))
             conn.commit()
-            messagebox.showinfo("Success", "Password updated successfully!")
-            e_current.delete(0, tk.END)
-            e_new.delete(0, tk.END)
-            e_confirm.delete(0, tk.END)
+
+            want_relogin = messagebox.askyesno(
+                "Password Updated",
+                "Password updated successfully!\n\n"
+                "DO YOU WANT TO RE-LOGIN NOW?\n\n"
+                "• YES → Go to Login Page\n"
+                "• NO → Stay logged in"
+            )
+
+            if want_relogin:
+                Main.set_user_status("Offline")
+                back_to_login()
+            else:
+                messagebox.showinfo("Saved", "Password changed — you are still logged in.")
+                e_current.delete(0, tk.END)
+                e_new.delete(0, tk.END)
+                e_confirm.delete(0, tk.END)
+                
         except Exception as e:
             messagebox.showerror("Error", str(e))
         finally:
@@ -196,8 +237,6 @@ def show_settings_screen():
         
         tk.Button(sys_card, text="SAVE ALL SETTINGS", bg=BTN_GREEN, fg=TEXT_DARK,
                   font=FONT, relief="solid", borderwidth=1, command=save_system_settings).pack(pady=10)
-    
-    # ✅ User sees NOTHING extra — only Change Password
 
 # ==================================================
 # NAVIGATION HELPERS

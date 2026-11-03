@@ -99,7 +99,6 @@ def show_categories_screen():
 # ==================================================
 def render_categories_list(data_list, parent_frame=None):
     global selected_category_index
-    # Clear rows
     for w in parent_frame.winfo_children():
         if w.cget("bg") not in ["#d4b86a", "#7B2CBF"]:
             w.destroy()

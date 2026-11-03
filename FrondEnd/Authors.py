@@ -262,11 +262,6 @@ def view_selected_author():
     
     view_container = tk.Frame(frame, bg=BG_CARD, padx=30, pady=30, relief="solid", borderwidth=2)
     view_container.pack(pady=50)
-
-    profile_frame = tk.Frame(view_container, bg=BG_CARD)
-    profile_frame.pack(anchor="w", pady=(0, 15))
-    tk.Label(profile_frame, text="PROFILE\nPICTURE", font=FONT, bg="#e5d9b6", fg=TEXT_DARK,
-             width=12, height=4, relief="solid", borderwidth=1).pack()
      
     def make_view_field(label_text, value):
         tk.Label(view_container, text=label_text, font=FONT, bg=BG_CARD, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 2))

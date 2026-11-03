@@ -93,7 +93,6 @@ def show_user_categories_screen():
 # ==================================================
 def render_categories_list(data_list, parent_frame=None):
     global selected_category_index
-    # Clear rows except header
     for w in parent_frame.winfo_children():
         if w.cget("bg") not in ["#d4b86a", "#7B2CBF"]:
             w.destroy()
@@ -112,11 +111,9 @@ def render_categories_list(data_list, parent_frame=None):
             def select_this(e):
                 global selected_category_index
                 selected_category_index = i
-                # Reset all rows
                 for w in parent_frame.winfo_children():
                     if isinstance(w, tk.Frame) and w.cget("cursor") == "hand2":
                         w.configure(bg=BG_CARD)
-                # Highlight selected
                 r.configure(bg="#e5d9b6")
             return select_this
         
