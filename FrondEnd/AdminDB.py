@@ -1,10 +1,14 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 import Main
 from Main import set_user_status
 import hashlib
 import mysql.connector
 from datetime import date, datetime
+from PIL import Image, ImageTk
+import os
+import shutil
+import uuid
 
 # ========== SHORTCUTS ==========
 root = Main.root
@@ -26,6 +30,41 @@ TEXT_LIGHT = Main.TEXT_LIGHT
 FONT = Main.FONT
 FONT_TITLE = Main.FONT_TITLE
 FONT_HEADING = Main.FONT_HEADING
+
+PROFILE_PICTURE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "profile_pics"
+)
+
+def display_user_picture(label, image_path, size=(100, 100)):
+    if not image_path or not os.path.isfile(image_path):
+        label.config(
+            image="", text="PROFILE\nPICTURE", width=12, height=5,
+            bg="#e5d9b6",
+        )
+        label.image = None
+        return
+
+    try:
+        with Image.open(image_path) as source:
+            image = source.convert("RGB")
+            image.thumbnail(size, Image.Resampling.LANCZOS)
+        photo = ImageTk.PhotoImage(image)
+        label.config(image=photo, text="", width=size[0], height=size[1])
+        label.image = photo
+    except (OSError, tk.TclError) as err:
+        messagebox.showerror("Picture Error", f"Could not display profile picture:\n{err}")
+
+def remove_managed_profile_picture(image_path):
+    if not image_path:
+        return
+    try:
+        picture_path = os.path.realpath(image_path)
+        picture_dir = os.path.realpath(PROFILE_PICTURE_DIR)
+        if os.path.commonpath((picture_path, picture_dir)) == picture_dir:
+            if os.path.isfile(picture_path):
+                os.remove(picture_path)
+    except (OSError, ValueError) as err:
+        messagebox.showwarning("Picture Cleanup", f"Could not remove old profile picture:\n{err}")
 
 def normalize_date(value):
     if isinstance(value, datetime):
@@ -585,17 +624,25 @@ def show_user_detail(username):
     profile_frame = tk.Frame(box, bg="#e5d9b6", width=100, height=100, relief="solid", borderwidth=1)
     profile_frame.pack(anchor="w", pady=(0, 20))
     profile_frame.pack_propagate(False)
-    tk.Label(profile_frame, text="📷\nPROFILE\nPICTURE", font=("Arial", 9, "bold"),
-             bg="#e5d9b6", fg=TEXT_DARK, justify="center").pack()
+    profile_label = tk.Label(
+        profile_frame, text="PROFILE\nPICTURE", font=("Arial", 9, "bold"),
+        bg="#e5d9b6", fg=TEXT_DARK, justify="center",
+    )
+    profile_label.pack(fill="both", expand=True)
     
     conn = get_db_connection()
     if not conn: return
     try:
         cur = conn.cursor()
-        cur.execute("SELECT User_ID, Username, Email, User_Role FROM User WHERE Username=%s", (username,))
+        cur.execute(
+            "SELECT User_ID, Username, Email, User_Role, Profile_Picture "
+            "FROM User WHERE Username=%s",
+            (username,),
+        )
         user = cur.fetchone()
         if user:
-            uid, uname, email, role = user
+            uid, uname, email, role, profile_picture = user
+            display_user_picture(profile_label, profile_picture)
             
             def make_display_field(label, value):
                 tk.Label(box, text=f"{label}:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
@@ -630,18 +677,16 @@ def show_edit_user(username):
     
     tk.Label(box, text="EDIT USER", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
     
-    profile_frame = tk.Frame(box, bg="#e5d9b6", width=100, height=100, relief="solid", borderwidth=1)
-    profile_frame.pack(anchor="w", pady=(0, 20))
-    profile_frame.pack_propagate(False)
-    tk.Label(profile_frame, text="📷\nPROFILE\nPICTURE", font=("Arial", 9, "bold"),
-             bg="#e5d9b6", fg=TEXT_DARK, justify="center").pack()
-    
     conn = get_db_connection()
     if not conn: return
     user_data = None
     try:
         cur = conn.cursor()
-        cur.execute("SELECT User_ID, Username, Email, User_Role FROM User WHERE Username=%s", (username,))
+        cur.execute(
+            "SELECT User_ID, Username, Email, User_Role, Profile_Picture "
+            "FROM User WHERE Username=%s",
+            (username,),
+        )
         user_data = cur.fetchone()
     except Exception as e:
         messagebox.showerror("Error", f"Cannot load user:\n{e}")
@@ -654,9 +699,68 @@ def show_edit_user(username):
         show_admin_dashboard()
         return
     
-    uid, uname, email, role = user_data
+    uid, uname, email, role, current_picture_path = user_data
     entries = {}
     pass_shown = False
+    picture_state = {"selected_path": None, "remove": False}
+
+    profile_frame = tk.Frame(box, bg="#e5d9b6", width=100, height=100, relief="solid", borderwidth=1)
+    profile_frame.pack(anchor="w", pady=(0, 5))
+    profile_frame.pack_propagate(False)
+    profile_label = tk.Label(
+        profile_frame, text="PROFILE\nPICTURE", font=("Arial", 9, "bold"),
+        bg="#e5d9b6", fg=TEXT_DARK, justify="center",
+    )
+    profile_label.pack(fill="both", expand=True)
+
+    picture_buttons = tk.Frame(box, bg=BG_CONTENT)
+    picture_buttons.pack(anchor="w", pady=(0, 15))
+
+    def refresh_profile_preview():
+        path = picture_state["selected_path"]
+        if path is None and not picture_state["remove"]:
+            path = current_picture_path
+        display_user_picture(profile_label, path)
+
+    def upload_profile_picture():
+        path = filedialog.askopenfilename(
+            title="Select Profile Picture",
+            filetypes=[("Image Files", "*.png *.jpg *.jpeg")],
+        )
+        if not path:
+            return
+
+        extension = os.path.splitext(path)[1].lower()
+        if extension not in (".png", ".jpg", ".jpeg"):
+            messagebox.showerror("Invalid Image", "Choose a PNG or JPEG image.")
+            return
+        try:
+            with Image.open(path) as image:
+                image.verify()
+        except (OSError, ValueError) as err:
+            messagebox.showerror("Invalid Image", f"Could not read the selected image:\n{err}")
+            return
+
+        picture_state["selected_path"] = path
+        picture_state["remove"] = False
+        refresh_profile_preview()
+
+    def remove_profile_picture():
+        picture_state["selected_path"] = None
+        picture_state["remove"] = True
+        refresh_profile_preview()
+
+    tk.Button(
+        picture_buttons, text="UPLOAD", bg=BTN_GREEN, fg=TEXT_DARK,
+        width=10, font=FONT, relief="solid", borderwidth=1,
+        command=upload_profile_picture,
+    ).pack(side="left", padx=(0, 5))
+    tk.Button(
+        picture_buttons, text="REMOVE", bg=BTN_RED, fg="white",
+        width=10, font=FONT, relief="solid", borderwidth=1,
+        command=remove_profile_picture,
+    ).pack(side="left")
+    refresh_profile_preview()
 
     def make_edit_field(label, value):
         tk.Label(box, text=f"{label}:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, anchor="w").pack(fill="x")
@@ -713,6 +817,8 @@ def show_edit_user(username):
         new_email = entries["Email"].get().strip()
         new_password = entries["Password"].get()
         new_role = role_drop.get()
+        new_picture_path = current_picture_path
+        installed_picture_path = None
         
         if not new_user:
             messagebox.showwarning("Warning", "Username cannot be empty!")
@@ -724,36 +830,64 @@ def show_edit_user(username):
                 messagebox.showerror("Invalid Email", email_msg)
                 return
 
+        hashed_pw = None
+        if new_password:
+            valid_password, password_msg = Main.validate_password(new_password)
+            if not valid_password:
+                messagebox.showwarning("Invalid Password", password_msg)
+                return
+            hashed_pw = hash_password(new_password)
+
         conn = get_db_connection()
         if not conn: return
+        database_committed = False
         try:
             cur = conn.cursor()
+
+            if picture_state["remove"]:
+                new_picture_path = None
+            elif picture_state["selected_path"]:
+                extension = os.path.splitext(picture_state["selected_path"])[1].lower()
+                os.makedirs(PROFILE_PICTURE_DIR, exist_ok=True)
+                new_picture_path = os.path.join(
+                    PROFILE_PICTURE_DIR, f"user_{uid}_{uuid.uuid4().hex}{extension}"
+                )
+                installed_picture_path = new_picture_path
+                shutil.copyfile(picture_state["selected_path"], new_picture_path)
             
             if new_password:
-                valid_password, password_msg = Main.validate_password(new_password)
-                if not valid_password:
-                    messagebox.showwarning("Invalid Password", password_msg)
-                    return
-                # HASH NEW PASSWORD BEFORE SAVING
-                hashed_pw = hash_password(new_password)
                 cur.execute("""
                     UPDATE User
-                    SET Username=%s, Email=%s, Password=%s, User_Role=%s
+                    SET Username=%s, Email=%s, Password=%s, User_Role=%s,
+                        Profile_Picture=%s
                     WHERE User_ID=%s
-                    """, (new_user, new_email if new_email else None, hashed_pw, new_role, uid))
+                    """, (new_user, new_email if new_email else None, hashed_pw,
+                          new_role, new_picture_path, uid))
                 msg = "User updated!\nPassword changed and secured."
             else:
                 cur.execute("""
                     UPDATE User
-                    SET Username=%s, Email=%s, User_Role=%s
+                    SET Username=%s, Email=%s, User_Role=%s, Profile_Picture=%s
                     WHERE User_ID=%s
-                    """, (new_user, new_email if new_email else None, new_role, uid))
+                    """, (new_user, new_email if new_email else None, new_role,
+                          new_picture_path, uid))
                 msg = "User updated!\nPassword unchanged."
             
             conn.commit()
+            database_committed = True
+            if picture_state["remove"] or picture_state["selected_path"]:
+                remove_managed_profile_picture(current_picture_path)
             messagebox.showinfo("Success", msg)
             show_admin_dashboard()
         except Exception as e:
+            if not database_committed and installed_picture_path and os.path.isfile(installed_picture_path):
+                try:
+                    os.remove(installed_picture_path)
+                except OSError as cleanup_error:
+                    messagebox.showwarning(
+                        "Picture Cleanup",
+                        f"Could not clean up the new profile picture:\n{cleanup_error}",
+                    )
             messagebox.showerror("Error", f"Update failed!\n{e}")
         finally:
             conn.close()
