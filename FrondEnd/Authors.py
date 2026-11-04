@@ -1,6 +1,9 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
+from PIL import Image, ImageTk
 import Main
+import os
+import shutil
 
 # ========== SHORTCUTS ==========
 root = Main.root
@@ -19,9 +22,45 @@ FONT = Main.FONT
 FONT_TITLE = Main.FONT_TITLE
 FONT_HEADING = Main.FONT_HEADING
 
+AUTHOR_PICTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "author_profile_pics")
 authors_data = []
 selected_author_index = -1
 editing_author_id = None
+
+def get_author_picture_path(author_id):
+    for extension in (".png", ".jpg", ".jpeg"):
+        path = os.path.join(AUTHOR_PICTURE_DIR, f"author_{author_id}{extension}")
+        if os.path.isfile(path):
+            return path
+    return None
+
+def remove_author_picture_files(author_id, keep_path=None):
+    keep_path = os.path.abspath(keep_path) if keep_path else None
+    for extension in (".png", ".jpg", ".jpeg"):
+        path = os.path.join(AUTHOR_PICTURE_DIR, f"author_{author_id}{extension}")
+        if os.path.isfile(path) and os.path.abspath(path) != keep_path:
+            os.remove(path)
+
+def display_author_picture(label, image_path, size=(120, 120)):
+    if not image_path:
+        label.config(
+            image="", text="AUTHOR\nPICTURE", width=16, height=7,
+            bg="#e8d5b0",
+        )
+        label.image = None
+        return None
+
+    try:
+        with Image.open(image_path) as source:
+            image = source.convert("RGB")
+            image.thumbnail(size, Image.Resampling.LANCZOS)
+        photo = ImageTk.PhotoImage(image)
+        label.config(image=photo, text="", width=size[0], height=size[1])
+        label.image = photo
+        return photo
+    except (OSError, tk.TclError) as err:
+        messagebox.showerror("Picture Error", f"Could not display author picture:\n{err}")
+        return None
 
 # ==================================================
 # AUTHORS LIST
@@ -204,6 +243,56 @@ def show_author_form_screen(author_data=None):
     tk.Label(form_container, text="ADD / EDIT AUTHOR", font=FONT_HEADING, bg=BG_CARD, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
     
     form_entries = {}
+    picture_state = {"selected_path": None, "remove": False, "photo": None}
+    picture_frame = tk.Frame(form_container, bg=BG_CARD)
+    picture_frame.pack(anchor="w", pady=(0, 10))
+    picture_preview = tk.Label(
+        picture_frame, text="AUTHOR\nPICTURE", bg="#e8d5b0", fg=TEXT_DARK,
+        font=FONT, width=16, height=7, relief="solid", borderwidth=1,
+    )
+    picture_preview.pack(side="left", padx=(0, 12))
+    picture_buttons = tk.Frame(picture_frame, bg=BG_CARD)
+    picture_buttons.pack(side="left")
+
+    def refresh_picture_preview():
+        path = picture_state["selected_path"]
+        if not path and not picture_state["remove"] and editing_author_id:
+            path = get_author_picture_path(editing_author_id)
+        picture_state["photo"] = display_author_picture(picture_preview, path)
+
+    def upload_author_picture():
+        path = filedialog.askopenfilename(
+            title="Select Author Picture",
+            filetypes=[("Image Files", "*.png *.jpg *.jpeg")],
+        )
+        if not path:
+            return
+        try:
+            with Image.open(path) as image:
+                image.verify()
+        except (OSError, ValueError) as err:
+            messagebox.showerror("Invalid Image", f"Could not open this image:\n{err}")
+            return
+        picture_state["selected_path"] = path
+        picture_state["remove"] = False
+        refresh_picture_preview()
+
+    def remove_author_picture():
+        picture_state["selected_path"] = None
+        picture_state["remove"] = True
+        refresh_picture_preview()
+
+    tk.Button(
+        picture_buttons, text="UPLOAD", bg=BTN_GREEN, fg=TEXT_DARK,
+        width=12, font=FONT, relief="solid", borderwidth=1,
+        command=upload_author_picture,
+    ).pack(pady=3)
+    tk.Button(
+        picture_buttons, text="REMOVE", bg=BTN_RED, fg="white",
+        width=12, font=FONT, relief="solid", borderwidth=1,
+        command=remove_author_picture,
+    ).pack(pady=3)
+    refresh_picture_preview()
     
     tk.Label(form_container, text="First Name", font=FONT, bg=BG_CARD, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(10, 2))
     first_entry = tk.Entry(form_container, font=FONT, width=40)
@@ -235,7 +324,8 @@ def show_author_form_screen(author_data=None):
     btn_frame.pack(pady=(25, 0))
     
     tk.Button(btn_frame, text="SAVE", bg=BTN_GREEN, fg=TEXT_DARK, width=12, font=FONT,
-              relief="solid", borderwidth=1, command=lambda: save_author(form_entries)).pack(side="left", padx=10)
+              relief="solid", borderwidth=1,
+              command=lambda: save_author(form_entries, picture_state)).pack(side="left", padx=10)
     tk.Button(btn_frame, text="CANCEL", bg=BTN_RED, fg="white", width=12, font=FONT,
               relief="solid", borderwidth=1, command=show_authors_screen).pack(side="left", padx=10)
     
@@ -262,6 +352,13 @@ def view_selected_author():
     
     view_container = tk.Frame(frame, bg=BG_CARD, padx=30, pady=30, relief="solid", borderwidth=2)
     view_container.pack(pady=50)
+
+    picture_label = tk.Label(
+        view_container, text="AUTHOR\nPICTURE", bg="#e8d5b0", fg=TEXT_DARK,
+        font=FONT, width=16, height=7, relief="solid", borderwidth=1,
+    )
+    picture_label.pack(anchor="w", pady=(0, 10))
+    display_author_picture(picture_label, get_author_picture_path(author[0]))
      
     def make_view_field(label_text, value):
         tk.Label(view_container, text=label_text, font=FONT, bg=BG_CARD, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 2))
@@ -307,6 +404,13 @@ def delete_selected_author():
                 cur = conn.cursor()
                 cur.execute("DELETE FROM authors WHERE Author_ID = %s", (author_id,))
                 conn.commit()
+                try:
+                    remove_author_picture_files(author_id)
+                except OSError as err:
+                    messagebox.showwarning(
+                        "Picture Cleanup",
+                        f"Author deleted, but the picture file could not be removed:\n{err}",
+                    )
                 messagebox.showinfo("Deleted", "Author removed!")
                 show_authors_screen()
             except Exception as e:
@@ -346,7 +450,7 @@ def load_authors_from_db():
     finally:
         conn.close()
 
-def save_author(form_entries):
+def save_author(form_entries, picture_state=None):
     global editing_author_id
     first = form_entries["First Name"].get().strip()
     last = form_entries["Last Name"].get().strip()
@@ -370,17 +474,63 @@ def save_author(form_entries):
                 SET Author_Fullname=%s, Author_Biography=%s
                 WHERE Author_ID=%s
             """, (fullname, bio, editing_author_id))
-            messagebox.showinfo("Success", "Author updated!")
+            author_id = editing_author_id
         else:
             cur.execute("""
                 INSERT INTO authors (Author_Fullname, Author_Biography)
                 VALUES (%s, %s)
             """, (fullname, bio))
-            messagebox.showinfo("Success", "Author added!")
-        
+            author_id = cur.lastrowid
+
+        selected_picture = picture_state.get("selected_path") if picture_state else None
+        picture_path = None
+        staged_picture_path = None
+        if selected_picture:
+            extension = os.path.splitext(selected_picture)[1].lower()
+            if extension not in {".png", ".jpg", ".jpeg"}:
+                raise ValueError("Author pictures must be PNG or JPEG files.")
+            os.makedirs(AUTHOR_PICTURE_DIR, exist_ok=True)
+            picture_path = os.path.join(
+                AUTHOR_PICTURE_DIR, f"author_{author_id}{extension}"
+            )
+            if os.path.abspath(selected_picture) != os.path.abspath(picture_path):
+                staged_picture_path = picture_path + ".uploading"
+                shutil.copy2(selected_picture, staged_picture_path)
+                with Image.open(staged_picture_path) as image:
+                    image.verify()
+
         conn.commit()
+        try:
+            if staged_picture_path:
+                os.replace(staged_picture_path, picture_path)
+        except OSError as err:
+            messagebox.showwarning(
+                "Author Saved",
+                f"Author details were saved, but the new picture could not be installed:\n{err}",
+            )
+            show_authors_screen()
+            return
+
+        if picture_state and (selected_picture or picture_state.get("remove")):
+            try:
+                remove_author_picture_files(author_id, keep_path=picture_path)
+            except OSError as err:
+                messagebox.showwarning(
+                    "Picture Cleanup",
+                    f"Author saved, but an old picture file could not be removed:\n{err}",
+                )
+        messagebox.showinfo("Success", "Author updated!" if editing_author_id else "Author added!")
         show_authors_screen()
     except Exception as e:
+        conn.rollback()
+        if 'staged_picture_path' in locals() and staged_picture_path and os.path.isfile(staged_picture_path):
+            try:
+                os.remove(staged_picture_path)
+            except OSError as cleanup_error:
+                messagebox.showwarning(
+                    "Picture Cleanup",
+                    f"Could not remove temporary picture file:\n{cleanup_error}",
+                )
         messagebox.showerror("Error", f"Save failed:\n{e}")
     finally:
         conn.close()

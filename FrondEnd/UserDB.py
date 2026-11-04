@@ -66,19 +66,85 @@ def show_notifications():
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1280, height=720)
     frame.pack(fill="both", expand=True)
-    
-    tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_user_dashboard).place(x=1130, y=15)
-    
-    box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30, relief="solid", borderwidth=1)
-    box.place(relx=0.5, rely=0.5, anchor="center")
-    
-    tk.Label(box, text="NOTIFICATIONS", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
-    
-    my_user_id = current_user["user_id"]
+
+    header = tk.Frame(frame, bg=BG_CONTENT, padx=15, pady=10)
+    header.pack(fill="x")
+    tk.Label(header, text="NOTIFICATIONS", font=FONT_HEADING,
+             bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left")
+    tk.Button(header, text="BACK", bg=BTN_BROWN, fg="white", width=10,
+              command=show_user_dashboard).pack(side="right")
+
+    notifications_area = tk.Frame(frame, bg=BG_MAIN)
+    notifications_area.pack(fill="both", expand=True, padx=25, pady=15)
+    notifications_canvas = tk.Canvas(notifications_area, bg=BG_MAIN, highlightthickness=0)
+    notifications_scrollbar = tk.Scrollbar(
+        notifications_area, orient="vertical", command=notifications_canvas.yview
+    )
+    notifications_body = tk.Frame(notifications_canvas, bg=BG_MAIN)
+    notifications_window = notifications_canvas.create_window(
+        (0, 0), window=notifications_body, anchor="nw"
+    )
+    notifications_body.bind(
+        "<Configure>",
+        lambda event: notifications_canvas.configure(
+            scrollregion=notifications_canvas.bbox("all")
+        ),
+    )
+    notifications_canvas.bind(
+        "<Configure>",
+        lambda event: notifications_canvas.itemconfigure(
+            notifications_window, width=event.width
+        ),
+    )
+    notifications_canvas.configure(yscrollcommand=notifications_scrollbar.set)
+    notifications_canvas.pack(side="left", fill="both", expand=True)
+    notifications_scrollbar.pack(side="right", fill="y")
+
+    my_user_id = current_user.get("user_id")
+    if not my_user_id:
+        messagebox.showwarning("Sign In Required", "Please sign in to view notifications.")
+        Main.show_login()
+        return
+
+    # ========= PENDING REQUESTS =========
+    pending_frame = tk.Frame(notifications_body, bg="#fff3cd", padx=15, pady=15, relief="solid", borderwidth=1)
+    pending_frame.pack(fill="x", pady=(0, 10))
+    tk.Label(pending_frame, text="WAITING FOR ADMIN APPROVAL:",
+             font=FONT_TITLE, bg="#fff3cd", fg="#856404").pack(anchor="w")
+
+    conn = get_db_connection()
+    pending_list = []
+    if conn:
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT b.Book_Title, br.Borrow_Date
+                FROM borrow_records br
+                JOIN Books b ON br.Book_ID = b.Book_ID
+                WHERE br.User_ID = %s AND br.Status = 'Pending'
+                ORDER BY br.Borrow_Date DESC, br.Record_ID DESC
+            """, (my_user_id,))
+            pending_list = cur.fetchall()
+        except Exception as e:
+            messagebox.showerror("Notification Error", f"Could not load pending requests:\n{e}")
+        finally:
+            conn.close()
+
+    if not pending_list:
+        tk.Label(pending_frame, text="No requests waiting for approval.",
+                 font=FONT, bg="#fff3cd", fg=TEXT_DARK).pack(anchor="w", pady=(5, 0))
+    else:
+        for item in pending_list:
+            requested_date = item["Borrow_Date"]
+            date_text = str(requested_date)[:10] if requested_date else "date not set"
+            tk.Label(
+                pending_frame,
+                text=f"\"{item['Book_Title']}\" — Waiting for admin approval (requested {date_text})",
+                font=FONT, bg="#fff3cd", fg=TEXT_DARK, anchor="w", wraplength=950,
+            ).pack(anchor="w", pady=3)
     
     # ========= APPROVED REQUESTS =========
-    approved_frame = tk.Frame(box, bg="#d4edda", padx=15, pady=15, relief="solid", borderwidth=1)
+    approved_frame = tk.Frame(notifications_body, bg="#d4edda", padx=15, pady=15, relief="solid", borderwidth=1)
     approved_frame.pack(fill="x", pady=(0, 10))
     tk.Label(approved_frame, text="APPROVED:", font=FONT_TITLE, bg="#d4edda", fg="#155724").pack(anchor="w")
     
@@ -127,7 +193,7 @@ def show_notifications():
                       relief="solid", borderwidth=1, command=view_approved).pack(anchor="e")
     
     # ========= REJECTED REQUESTS =========
-    rejected_frame = tk.Frame(box, bg="#f8d7da", padx=15, pady=15, relief="solid", borderwidth=1)
+    rejected_frame = tk.Frame(notifications_body, bg="#f8d7da", padx=15, pady=15, relief="solid", borderwidth=1)
     rejected_frame.pack(fill="x", pady=(0, 10))
     tk.Label(rejected_frame, text="REJECTED / CANCELLED:", font=FONT_TITLE, bg="#f8d7da", fg="#721c24").pack(anchor="w")
     
@@ -158,7 +224,7 @@ def show_notifications():
                      font=FONT, bg="#f8d7da", fg=TEXT_DARK).pack(anchor="w", pady=3)
     
     # ========= UPCOMING / DUE SOON =========
-    upcoming_frame = tk.Frame(box, bg="#fff3cd", padx=15, pady=15, relief="solid", borderwidth=1)
+    upcoming_frame = tk.Frame(notifications_body, bg="#fff3cd", padx=15, pady=15, relief="solid", borderwidth=1)
     upcoming_frame.pack(fill="x")
     tk.Label(upcoming_frame, text="COMING UP / DUE SOON:", font=FONT_TITLE, bg="#fff3cd", fg="#856404").pack(anchor="w")
     

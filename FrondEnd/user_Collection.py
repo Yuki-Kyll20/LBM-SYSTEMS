@@ -151,9 +151,19 @@ def show_user_collection_screen():
         win.transient(root)
         win.grab_set()
 
-        tk.Label(win, text="Book:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(30, 5))
+        tk.Label(
+            win,
+            text="Choose from your approved or completed books:",
+            font=FONT, bg=BG_CONTENT, fg=TEXT_DARK,
+        ).pack(pady=(30, 5))
         book_select = ttk.Combobox(win, font=FONT, width=38, state="readonly")
         book_select.pack(pady=5)
+
+        user_id = current_user.get("user_id")
+        if not user_id:
+            win.destroy()
+            messagebox.showwarning("Sign In Required", "Please sign in again before editing your collection.")
+            return
 
         conn = get_db_connection()
         if not conn:
@@ -161,14 +171,44 @@ def show_user_collection_screen():
             return
         try:
             cur = conn.cursor()
-            cur.execute("SELECT Book_Title FROM Books ORDER BY Book_Title")
-            book_select["values"] = [row[0] for row in cur.fetchall()]
+            cur.execute("""
+                SELECT DISTINCT b.Book_Title
+                FROM borrow_records br
+                JOIN Books b ON br.Book_ID = b.Book_ID
+                WHERE br.User_ID = %s
+                  AND br.Status IN ('Reading', 'Completed')
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM collection c
+                      WHERE c.User_Name = %s
+                        AND c.Book_Title = b.Book_Title
+                        AND c.Status = 'Active'
+                  )
+                ORDER BY b.Book_Title
+            """, (user_id, current_user.get("username", "")))
+            available_books = [row[0] for row in cur.fetchall()]
+            book_select["values"] = available_books
         except Exception as e:
             win.destroy()
             messagebox.showerror("Error", f"Cannot load books:\n{e}")
             return
         finally:
             conn.close()
+
+        add_button = tk.Button(
+            win, text="ADD BOOK", bg=BTN_GREEN, fg=TEXT_DARK,
+            font=FONT, relief="solid", borderwidth=1,
+        )
+        add_button.pack(pady=15)
+        if not available_books:
+            book_select.configure(state="disabled")
+            add_button.configure(state="disabled")
+            tk.Label(
+                win,
+                text="No eligible books yet. Approved or completed borrowings will appear here.",
+                font=FONT, bg=BG_CONTENT, fg=TEXT_DARK, wraplength=440,
+            ).pack(pady=10)
+            return
 
         def save_new():
             btitle = book_select.get().strip()
@@ -183,6 +223,21 @@ def show_user_collection_screen():
             if conn:
                 try:
                     cur = conn.cursor()
+                    cur.execute("""
+                        SELECT b.Book_ID
+                        FROM Books b
+                        JOIN borrow_records br ON br.Book_ID = b.Book_ID
+                        WHERE br.User_ID = %s
+                          AND br.Status IN ('Reading', 'Completed')
+                          AND b.Book_Title = %s
+                        LIMIT 1
+                    """, (user_id, btitle))
+                    if not cur.fetchone():
+                        messagebox.showwarning(
+                            "Book Not Available",
+                            "Only your approved or completed books can be added to your collection.",
+                        )
+                        return
                     cur.execute(
                         "SELECT Collection_ID FROM collection "
                         "WHERE User_Name=%s AND Book_Title=%s AND Status='Active'",
@@ -204,7 +259,6 @@ def show_user_collection_screen():
                 finally:
                     conn.close()
 
-        tk.Button(win, text="ADD BOOK", bg=BTN_GREEN, fg=TEXT_DARK,
-                  font=FONT, command=save_new, relief="solid", borderwidth=1).pack(pady=15)
+        add_button.configure(command=save_new)
 
     load_data()

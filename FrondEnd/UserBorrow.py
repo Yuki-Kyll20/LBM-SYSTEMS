@@ -476,7 +476,7 @@ def borrow_book():
     e_notes = tk.Entry(content, font=FONT, width=40)
     e_notes.pack(pady=(0, 10), anchor="w")
     
-    tk.Label(content, text="Your request will appear once approved by Admin.",
+    tk.Label(content, text="Your request is sent to Admin. Track its approval in Notifications.",
              font=FONT, bg="#f7e797", fg=TEXT_DARK).pack(anchor="w", pady=(0, 5))
 
     tk.Button(footer, text="BACK TO RECORDS", bg=BTN_BROWN, fg="white",

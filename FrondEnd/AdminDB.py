@@ -4,6 +4,7 @@ import Main
 from Main import set_user_status
 import hashlib
 import mysql.connector
+from datetime import date, datetime
 
 # ========== SHORTCUTS ==========
 root = Main.root
@@ -25,6 +26,15 @@ TEXT_LIGHT = Main.TEXT_LIGHT
 FONT = Main.FONT
 FONT_TITLE = Main.FONT_TITLE
 FONT_HEADING = Main.FONT_HEADING
+
+def normalize_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if value:
+        return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
+    return None
 
 # ========== PASSWORD HASHING ==========
 def hash_password(password):
@@ -73,9 +83,7 @@ def show_overdue_detail(record_id, username, book_title, due_date):
     tk.Label(header, text="Days Late", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=12).grid(row=0, column=2)
     tk.Label(header, text="Fine Amount", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=15).grid(row=0, column=3)
     
-    from datetime import date, datetime
-    if isinstance(due_date, datetime):
-        due_date = due_date.date()
+    due_date = normalize_date(due_date)
     days_late = max((date.today() - due_date).days, 0) if due_date else 0
     fine_per_day = 5
     fine_amount = days_late * fine_per_day
@@ -123,17 +131,42 @@ def show_notifications():
     clear_all()
     frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     frame.pack(fill="both", expand=True)
-    
-    tk.Button(frame, text="BACK", bg=BTN_BROWN, fg="white", width=10,
-              command=show_admin_dashboard).place(x=1325, y=15)
-    
-    box = tk.Frame(frame, bg=BG_CONTENT, padx=40, pady=30, relief="solid", borderwidth=1)
-    box.place(relx=0.5, rely=0.5, anchor="center")
-    
-    tk.Label(box, text="NOTIFICATIONS", font=FONT_HEADING, bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w", pady=(0, 20))
+
+    header = tk.Frame(frame, bg=BG_CONTENT, padx=15, pady=10)
+    header.pack(fill="x")
+    tk.Label(header, text="NOTIFICATIONS", font=FONT_HEADING,
+             bg=BG_CONTENT, fg=TEXT_DARK).pack(side="left")
+    tk.Button(header, text="BACK", bg=BTN_BROWN, fg="white", width=10,
+              command=show_admin_dashboard).pack(side="right")
+
+    notifications_area = tk.Frame(frame, bg=BG_MAIN)
+    notifications_area.pack(fill="both", expand=True, padx=25, pady=15)
+    notifications_canvas = tk.Canvas(notifications_area, bg=BG_MAIN, highlightthickness=0)
+    notifications_scrollbar = tk.Scrollbar(
+        notifications_area, orient="vertical", command=notifications_canvas.yview
+    )
+    notifications_body = tk.Frame(notifications_canvas, bg=BG_MAIN)
+    notifications_window = notifications_canvas.create_window(
+        (0, 0), window=notifications_body, anchor="nw"
+    )
+    notifications_body.bind(
+        "<Configure>",
+        lambda event: notifications_canvas.configure(
+            scrollregion=notifications_canvas.bbox("all")
+        ),
+    )
+    notifications_canvas.bind(
+        "<Configure>",
+        lambda event: notifications_canvas.itemconfigure(
+            notifications_window, width=event.width
+        ),
+    )
+    notifications_canvas.configure(yscrollcommand=notifications_scrollbar.set)
+    notifications_canvas.pack(side="left", fill="both", expand=True)
+    notifications_scrollbar.pack(side="right", fill="y")
     
     # ========= PENDING BORROW REQUESTS =========
-    pending_frame = tk.Frame(box, bg="#FFF3D0", padx=15, pady=15, relief="solid", borderwidth=1)
+    pending_frame = tk.Frame(notifications_body, bg="#FFF3D0", padx=15, pady=15, relief="solid", borderwidth=1)
     pending_frame.pack(fill="x", pady=(0, 15))
     
     tk.Label(pending_frame, text="PENDING BORROW REQUESTS:", font=FONT_TITLE,
@@ -145,16 +178,17 @@ def show_notifications():
         try:
             cur = conn.cursor(dictionary=True)
             cur.execute("""
-                SELECT br.Record_ID AS id, u.Username, b.Book_Title AS Title
+                SELECT br.Record_ID AS id, u.Username, b.Book_Title AS Title,
+                       br.Borrow_Date, br.Book_Review
                 FROM borrow_records br
                 JOIN User u ON br.User_ID = u.User_ID
                 JOIN Books b ON br.Book_ID = b.Book_ID
                 WHERE br.Status = 'Pending'
+                ORDER BY br.Borrow_Date DESC, br.Record_ID DESC
             """)
             pending_requests = cur.fetchall()
         except Exception as e:
-            print(f"Pending error: {e}")
-            pending_requests = []
+            messagebox.showerror("Notification Error", f"Could not load pending requests:\n{e}")
         finally:
             conn.close()
     
@@ -165,19 +199,39 @@ def show_notifications():
             req_id = req['id']
             uname = req['Username']
             btitle = req['Title']
+            requested_date = req.get("Borrow_Date")
+            notes = req.get("Book_Review")
             
             req_row = tk.Frame(pending_frame, bg="#FFF3D0")
             req_row.pack(fill="x", pady=5)
             
-            tk.Label(req_row, text=f"• {uname} wants: \"{btitle}\"", font=FONT,
-                     bg="#FFF3D0", fg=TEXT_DARK).pack(side="left")
+            detail_text = f"{uname} requested \"{btitle}\""
+            if requested_date:
+                detail_text += f" on {str(requested_date)[:10]}"
+            if notes:
+                detail_text += f"\nNote: {notes}"
+            tk.Label(req_row, text=detail_text, font=FONT,
+                     bg="#FFF3D0", fg=TEXT_DARK, justify="left",
+                     anchor="w", wraplength=650).pack(side="left", fill="x", expand=True)
             
             def approve_this(rid=req_id):
                 c = get_db_connection()
                 if c:
                     try:
                         cur = c.cursor()
-                        cur.execute("UPDATE borrow_records SET Status='Reading' WHERE Record_ID=%s", (rid,))
+                        cur.execute(
+                            "UPDATE borrow_records SET Status='Reading' "
+                            "WHERE Record_ID=%s AND Status='Pending'",
+                            (rid,)
+                        )
+                        if cur.rowcount != 1:
+                            c.rollback()
+                            messagebox.showwarning(
+                                "Request Updated",
+                                "This request is no longer pending. The list will be refreshed."
+                            )
+                            show_notifications()
+                            return
                         c.commit()
                         messagebox.showinfo("Approved", "Request approved!")
                         show_notifications()
@@ -191,7 +245,19 @@ def show_notifications():
                 if c:
                     try:
                         cur = c.cursor()
-                        cur.execute("UPDATE borrow_records SET Status='Dropped' WHERE Record_ID=%s", (rid,))
+                        cur.execute(
+                            "UPDATE borrow_records SET Status='Dropped' "
+                            "WHERE Record_ID=%s AND Status='Pending'",
+                            (rid,)
+                        )
+                        if cur.rowcount != 1:
+                            c.rollback()
+                            messagebox.showwarning(
+                                "Request Updated",
+                                "This request is no longer pending. The list will be refreshed."
+                            )
+                            show_notifications()
+                            return
                         c.commit()
                         messagebox.showinfo("Rejected", "Request rejected!")
                         show_notifications()
@@ -206,13 +272,12 @@ def show_notifications():
                       relief="solid", borderwidth=1, command=reject_this).pack(side="right", padx=3)
     
     # ========= OVERDUE BOOKS =========
-    overdue_frame = tk.Frame(box, bg="#FFF3D0", padx=15, pady=15, relief="solid", borderwidth=1)
+    overdue_frame = tk.Frame(notifications_body, bg="#FFF3D0", padx=15, pady=15, relief="solid", borderwidth=1)
     overdue_frame.pack(fill="x")
     
     tk.Label(overdue_frame, text="OVERDUE BOOKS:", font=FONT_TITLE,
              bg="#FFF3D0", fg=TEXT_DARK).pack(anchor="w", pady=(0, 10))
     
-    from datetime import datetime
     overdue_items = []
     conn = get_db_connection()
     if conn:
@@ -241,8 +306,8 @@ def show_notifications():
             o_id = item['id']
             o_user = item['Username']
             o_book = item['Title']
-            o_due = item['Due_Date']
-            days_late = (datetime.now() - o_due).days
+            o_due = normalize_date(item['Due_Date'])
+            days_late = (date.today() - o_due).days if o_due else 0
             
             item_row = tk.Frame(overdue_frame, bg="#FFF3D0")
             item_row.pack(fill="x", pady=5)
