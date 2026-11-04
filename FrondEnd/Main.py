@@ -688,7 +688,18 @@ def show_login():
         try:
             cur = conn.cursor()
             hashed_pwd = hashlib.sha256(pwd.encode('utf-8')).hexdigest()
-            cur.execute("SELECT User_ID, User_Role, Email FROM User WHERE Username=%s AND Password=%s", (user, hashed_pwd))
+            if email:
+                cur.execute(
+                    "SELECT User_ID, User_Role, Email FROM User "
+                    "WHERE Username=%s AND Email=%s AND Password=%s",
+                    (user, email, hashed_pwd)
+                )
+            else:
+                cur.execute(
+                    "SELECT User_ID, User_Role, Email FROM User "
+                    "WHERE Username=%s AND Password=%s",
+                    (user, hashed_pwd)
+                )
             result = cur.fetchone()
 
             if result:
