@@ -616,9 +616,17 @@ def open_account():
         import Account
         Account.show_account_screen()
     except ModuleNotFoundError as e:
+        if e.name == "PIL":
+            messagebox.showerror(
+                "Missing Dependency",
+                "The account screen needs Pillow to display profile pictures.\n\n"
+                "Install project dependencies with:\n"
+                "python -m pip install -r requirements.txt"
+            )
+            return
         messagebox.showerror(
             "File Missing",
-            f"Cannot find Account.py!\n\nError: {e}\n\nMake sure Account.py is in the same folder."
+            f"Cannot open the account screen because module '{e.name}' is unavailable.\n\n{e}"
         )
 
 # ========== OPEN SETTINGS ==========
