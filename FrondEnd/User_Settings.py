@@ -58,12 +58,28 @@ def show_user_settings_screen():
     
     content = tk.Frame(main_frame, bg="#f9f0c5", padx=20, pady=0)
     content.pack(side="right", fill="both", expand=True)
-    
+
+    settings_canvas = tk.Canvas(content, bg="#f9f0c5", highlightthickness=0)
+    settings_scrollbar = tk.Scrollbar(content, orient="vertical", command=settings_canvas.yview)
+    settings_body = tk.Frame(settings_canvas, bg="#f9f0c5")
+    settings_window = settings_canvas.create_window((0, 0), window=settings_body, anchor="nw")
+    settings_body.bind(
+        "<Configure>",
+        lambda event: settings_canvas.configure(scrollregion=settings_canvas.bbox("all")),
+    )
+    settings_canvas.bind(
+        "<Configure>",
+        lambda event: settings_canvas.itemconfigure(settings_window, width=event.width),
+    )
+    settings_canvas.configure(yscrollcommand=settings_scrollbar.set)
+    settings_canvas.pack(side="left", fill="both", expand=True)
+    settings_scrollbar.pack(side="right", fill="y")
+
     # ========== CHANGE PASSWORD ONLY ==========
-    tk.Label(content, text="CHANGE PASSWORD", font=FONT_HEADING,
+    tk.Label(settings_body, text="CHANGE PASSWORD", font=FONT_HEADING,
              bg="#f9f0c5", fg=TEXT_DARK).pack(anchor="w", pady=(0, 15))
 
-    pass_card = tk.Frame(content, bg="#f7e797", padx=30, pady=25, relief="solid", borderwidth=2)
+    pass_card = tk.Frame(settings_body, bg="#f7e797", padx=30, pady=25, relief="solid", borderwidth=2)
     pass_card.pack(fill="x", padx=10, pady=(0, 20))
 
     # Current Password

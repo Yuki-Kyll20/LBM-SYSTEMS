@@ -404,57 +404,84 @@ def view_record(rec_id):
 def borrow_book():
     clear_all()
     
-    form_frame = tk.Frame(root, bg="#f7e797", padx=30, pady=25)
+    form_frame = tk.Frame(root, bg="#f7e797")
     form_frame.pack(fill="both", expand=True)
-    
-    tk.Label(form_frame, text="ADD BORROW REQUEST", font=FONT_TITLE, 
-             bg="#f7e797", fg=TEXT_DARK).pack(pady=(0, 20))
+
+    top_bar = tk.Frame(form_frame, bg="#e8d57a", padx=15, pady=10)
+    top_bar.pack(side="top", fill="x")
+    tk.Label(top_bar, text="BORROW BOOKS", font=FONT_TITLE,
+             bg="#e8d57a", fg=TEXT_DARK).pack(side="left")
+    tk.Button(top_bar, text="BACK", bg=BTN_BROWN, fg="white", width=10,
+              relief="solid", borderwidth=1,
+              command=show_user_borrow_screen).pack(side="right")
+
+    title_bar = tk.Frame(form_frame, bg=BG_CONTENT, padx=15, pady=12,
+                         relief="solid", borderwidth=1)
+    title_bar.pack(side="top", fill="x", padx=20, pady=(10, 0))
+    tk.Label(title_bar, text="ADD BORROW REQUEST", font=FONT_TITLE,
+             bg=BG_CONTENT, fg=TEXT_DARK).pack(anchor="w")
+
+    footer = tk.Frame(form_frame, bg="#e8d57a", padx=15, pady=10)
+    footer.pack(side="bottom", fill="x")
+
+    body = tk.Frame(form_frame, bg="#f7e797")
+    body.pack(side="top", fill="both", expand=True, padx=20, pady=10)
+    canvas = tk.Canvas(body, bg="#f7e797", highlightthickness=0)
+    scrollbar = tk.Scrollbar(body, orient="vertical", command=canvas.yview)
+    content = tk.Frame(canvas, bg="#f7e797", padx=20, pady=15)
+    content_window = canvas.create_window((0, 0), window=content, anchor="nw")
+    content.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.bind("<Configure>", lambda event: canvas.itemconfigure(content_window, width=event.width))
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
     
     global book_select, date_started_picker, date_finished_picker, rate_var, e_notes
     
     # Book Selection
-    tk.Label(form_frame, text="Select Book:", font=FONT, 
-             bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(10, 2))
+    tk.Label(content, text="Select Book:", font=FONT,
+             bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(0, 2))
     book_list = get_book_list()
-    book_select = ttk.Combobox(form_frame, values=book_list, font=FONT, width=40, state="readonly")
-    book_select.pack(pady=(0, 10))
+    book_select = ttk.Combobox(content, values=book_list, font=FONT, width=40, state="readonly")
+    book_select.pack(pady=(0, 10), anchor="w")
     
     # Status (display only)
-    tk.Label(form_frame, text="Status:", font=FONT, 
+    tk.Label(content, text="Status:", font=FONT,
              bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(10, 2))
-    tk.Label(form_frame, text="Pending Approval — Admin will update status", 
-             bg="#e8d590", fg=TEXT_DARK, font=FONT, padx=10, pady=8).pack(fill="x", pady=(0, 10))
+    tk.Label(content, text="Pending Approval — Admin will update status",
+             bg="#e8d590", fg=TEXT_DARK, font=FONT, padx=10, pady=8).pack(anchor="w", pady=(0, 10))
     
     # Date Started
-    date_started_picker = DatePicker(form_frame, "Date Started:")
+    date_started_picker = DatePicker(content, "Date Started:", width=20)
     date_started_picker.pack(fill="x", pady=(10, 5))
     date_started_picker.entry.delete(0, tk.END)
     date_started_picker.entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
     
     # Date Finished
-    date_finished_picker = DatePicker(form_frame, "Date Finished (Optional):")
+    date_finished_picker = DatePicker(content, "Date Finished (Optional):", width=20)
     date_finished_picker.pack(fill="x", pady=(10, 5))
     
     # Rating
-    tk.Label(form_frame, text="Rating (Optional):", font=FONT, 
+    tk.Label(content, text="Rating (Optional):", font=FONT,
              bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(15, 2))
     rate_var = tk.StringVar(value="---/5")
-    rate_select = ttk.Combobox(form_frame, textvariable=rate_var,
+    rate_select = ttk.Combobox(content, textvariable=rate_var,
         values=["---/5", "1/5", "2/5", "3/5", "4/5", "5/5"],
-        font=FONT, width=30, state="readonly")
-    rate_select.pack(pady=(0, 10))
+        font=FONT, width=12, state="readonly")
+    rate_select.pack(pady=(0, 10), anchor="w")
     
     # Notes / Message
-    tk.Label(form_frame, text="Notes / Message:", font=FONT, 
+    tk.Label(content, text="Notes / Message:", font=FONT,
              bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(15, 2))
-    e_notes = tk.Entry(form_frame, font=FONT, width=40)
-    e_notes.pack(pady=(0, 20))
+    e_notes = tk.Entry(content, font=FONT, width=40)
+    e_notes.pack(pady=(0, 10), anchor="w")
     
-    # Buttons
-    tk.Button(form_frame, text="SUBMIT REQUEST", bg=BTN_GREEN, fg=TEXT_DARK,
-              font=FONT, relief="solid", borderwidth=1, padx=30, pady=8,
-              command=save_borrow_request).pack(pady=(10, 10))
-    
-    tk.Button(form_frame, text="← BACK", bg=BTN_BROWN, fg="white",
-              font=FONT, relief="solid", borderwidth=1, padx=30, pady=8,
-              command=show_user_borrow_screen).pack(pady=(5, 10))
+    tk.Label(content, text="Your request will appear once approved by Admin.",
+             font=FONT, bg="#f7e797", fg=TEXT_DARK).pack(anchor="w", pady=(0, 5))
+
+    tk.Button(footer, text="BACK TO RECORDS", bg=BTN_BROWN, fg="white",
+              font=FONT, relief="solid", borderwidth=1, padx=20, pady=8,
+              command=show_user_borrow_screen).pack(side="left")
+    tk.Button(footer, text="SUBMIT REQUEST", bg=BTN_GREEN, fg=TEXT_DARK,
+              font=FONT, relief="solid", borderwidth=1, padx=24, pady=8,
+              command=save_borrow_request).pack(side="right")

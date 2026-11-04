@@ -34,7 +34,7 @@ def show_account_screen():
     main_frame = tk.Frame(root, bg=BG_MAIN, width=1440, height=900)
     main_frame.pack(fill="both", expand=True)
     
-    # ---------- HEADER — MATCHES DASHBOARD EXACTLY ----------
+    # HEADER
     header_frame = tk.Frame(main_frame, bg="#f7e797", padx=15, pady=12, relief="solid", borderwidth=2)
     header_frame.pack(fill="x", padx=20, pady=20)
     
@@ -42,7 +42,7 @@ def show_account_screen():
     tk.Label(header_frame, text=f"WELCOME — {role_label}", 
              font=FONT_HEADING, bg="#f7e797", fg=TEXT_DARK).pack(side="left")
     
-    # ---------- SIDEBAR — MATCHES DASHBOARD EXACTLY ----------
+    # SIDEBAR
     sidebar = tk.Frame(main_frame, bg=BG_SIDEBAR, width=220, padx=5, pady=15)
     sidebar.pack(side="left", fill="y")
     sidebar.pack_propagate(False)

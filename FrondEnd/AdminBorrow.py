@@ -145,8 +145,7 @@ class DatePicker:
 # ==================================================
 def show_admin_borrow_screen():
     username = Main.current_user.get("username", "")
-    
-    # ✅ SAME CHECK EVERYWHERE
+
     is_admin = Main.current_user.get("is_admin", False)
     
     print(f"AdminBorrow — is_admin = {is_admin} | User = {username}")
@@ -341,7 +340,6 @@ def load_borrow_from_db():
         """)
 
         borrow_data = cur.fetchall()
-        # ✅ Debug: print to console
         print(f"Loaded {len(borrow_data)} records")
         for rec in borrow_data:
             print(f"Status: [{rec[3]}] — {rec[2]}")
@@ -389,8 +387,7 @@ def update_status(rec_id, new_status):
 
 def add_borrow_book():
     clear_all()
-    
-    # ✅ Wider form frame
+
     frame = tk.Frame(root, bg="#f7e797", width=1440, height=900)
     frame.pack(fill="both", expand=True)
     
@@ -412,19 +409,27 @@ def add_borrow_book():
 
     btn_frame = tk.Frame(frame, bg="#f7e797", pady=8)
     btn_frame.pack(side="bottom", fill="x")
-    
-    # ✅ FIXED: Wider form box + scrollable
-    form_canvas = tk.Canvas(frame, bg="#f7e797", highlightthickness=0)
-    form_scroll = tk.Scrollbar(frame, orient="vertical", command=form_canvas.yview)
+
+    form_area = tk.Frame(frame, bg="#f7e797")
+    form_area.pack(fill="both", expand=True, padx=20)
+
+    form_canvas = tk.Canvas(form_area, bg="#f7e797", highlightthickness=0)
+    form_scroll = tk.Scrollbar(form_area, orient="vertical", command=form_canvas.yview)
     form_box = tk.Frame(form_canvas, bg="#f7e797", padx=30, pady=25)
-    
+
+    form_area.grid_rowconfigure(0, weight=1)
+    form_area.grid_columnconfigure(0, weight=1)
+    form_canvas.grid(row=0, column=0, sticky="nsew")
+    form_scroll.grid(row=0, column=1, sticky="ns")
+
+    form_window = form_canvas.create_window((0, 0), window=form_box, anchor="nw")
     form_box.bind("<Configure>", lambda e: form_canvas.configure(scrollregion=form_canvas.bbox("all")))
-    form_canvas.create_window((0, 0), window=form_box, anchor="nw", width=850)
+    form_canvas.bind(
+        "<Configure>",
+        lambda e: form_canvas.itemconfigure(form_window, width=e.width),
+    )
     form_canvas.configure(yscrollcommand=form_scroll.set)
-    
-    form_canvas.pack(side="left", fill="both", expand=True, padx=20)
-    form_scroll.pack(side="right", fill="y")
-    
+
     # --- Select Book — Wider dropdown ---
     tk.Label(form_box, text="Select Book:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
     
@@ -595,15 +600,14 @@ def view_record(rec_id):
         
         rec_id, username, book_title, status, date_started, date_finished, rating, review = result
         
-        # ✅ FIXED: Wider window + allow resizing
         view_win = tk.Toplevel(root)
         view_win.title(f"VIEW RECORD - {book_title}")
-        view_win.geometry("520x520")  # ← WIDER & TALLER
-        view_win.minsize(480, 480)     # ← Minimum size
+        view_win.geometry("520x520")
+        view_win.minsize(480, 480)
         view_win.configure(bg="#f7e797")
         view_win.transient(root)
         view_win.grab_set()
-        view_win.resizable(True, True)  # ← Allow resize
+        view_win.resizable(True, True)
 
         # Title bar
         title_bar = tk.Frame(view_win, bg="#e8d590", padx=15, pady=10, relief="solid", borderwidth=1)
@@ -611,7 +615,7 @@ def view_record(rec_id):
         tk.Label(title_bar, text=f"VIEW RECORD - {book_title}", 
                  font=("Arial", 11, "bold"), bg="#e8d590", fg=TEXT_DARK).pack(anchor="w")
 
-        # ✅ FIXED: Proper scrollable area
+        # scrollable
         canvas = tk.Canvas(view_win, bg="#f7e797", highlightthickness=0)
         scrollbar = tk.Scrollbar(view_win, orient="vertical", command=canvas.yview)
         content = tk.Frame(canvas, bg="#f7e797", padx=25, pady=15)
@@ -645,7 +649,7 @@ def view_record(rec_id):
         tk.Label(content, text=username, font=FONT, bg="white", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, padx=8, pady=4, anchor="w").pack(fill="x", pady=(0, 10))
 
-        # --- Book Title — Wrapped properly ---
+        # --- Book Title ---
         tk.Label(content, text="Book Title:", font=FONT, bg="#f7e797", fg=TEXT_DARK, anchor="w").pack(fill="x")
         tk.Label(content, text=book_title, font=FONT, bg="white", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, padx=8, pady=4, anchor="w",
@@ -677,8 +681,7 @@ def view_record(rec_id):
         tk.Label(content, text=review or "No notes added", font=FONT, bg="white", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, padx=8, pady=4, anchor="w",
                  wraplength=440).pack(fill="x", pady=(0, 15))
-
-        # BACK Button
+        
         tk.Button(content, text="BACK", bg=BTN_BROWN, fg="white", width=12,
                  relief="solid", borderwidth=1, font=("Arial", 10, "bold"),
                  command=view_win.destroy).pack(pady=(10, 15))

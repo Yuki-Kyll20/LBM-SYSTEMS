@@ -7,11 +7,19 @@ import re
 from datetime import datetime
 import hashlib
 
+# Keep imports from other screens bound to this module when launched as a script.
+sys.modules.setdefault("Main", sys.modules[__name__])
+
 # ========== WINDOW SETUP ==========
 root = tk.Tk()
 root.title("Book Library Management System")
-root.geometry("1440x900")
-root.resizable(False, False)
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+window_width = min(1440, max(1, screen_width - 40))
+window_height = min(900, max(1, screen_height - 80))
+root.geometry(f"{window_width}x{window_height}")
+root.minsize(min(800, window_width), min(600, window_height))
+root.resizable(True, True)
 
 # ========== COLORS & STYLES ==========
 BG_MAIN = "#fef3c7"
@@ -606,7 +614,7 @@ def open_collection():
         messagebox.showerror("File Missing", f"Cannot open My Collection\nError: {e}")
 
 
-# ========== OPEN ACCOUNT — Works for Admin & User ==========
+# ========== OPEN ACCOUNT for Admin & User ==========
 def open_account():
     main_dir = os.path.dirname(os.path.abspath(__file__))
     if main_dir not in sys.path:
@@ -667,7 +675,8 @@ def show_login():
     frame.pack(fill="both", expand=True)
     
     tk.Button(frame, text="EXIT", bg=BTN_RED, fg="white", width=8,
-              relief="solid", borderwidth=1, command=show_exit).place(x=1325, y=15)
+              relief="solid", borderwidth=1, command=show_exit).place(
+                  relx=1.0, x=-15, y=15, anchor="ne")
     
     tk.Label(frame, text="BOOK LIBRARY MANAGEMENT SYSTEM",
              font=("Arial", 18, "bold"), bg=BG_MAIN, fg=TEXT_DARK).pack(pady=(40, 10))
