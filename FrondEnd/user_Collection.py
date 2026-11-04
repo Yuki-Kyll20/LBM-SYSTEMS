@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import Main
 
 # ========== SHORTCUTS ==========
@@ -53,6 +53,9 @@ def show_user_collection_screen():
     # Table container
     table_frame = tk.Frame(content, bg=BG_CARD, relief="solid", borderwidth=1)
     table_frame.pack(fill="both", expand=True)
+    for column in range(4):
+        table_frame.grid_columnconfigure(column, weight=1)
+    table_frame.grid_rowconfigure(1, weight=1)
 
     # Headers — Exactly matches your design
     headers = ["ID", "BOOK TITLE", "ADDED DATE", "ACTIONS"]
@@ -60,11 +63,19 @@ def show_user_collection_screen():
         tk.Label(table_frame, text=h, font=FONT, bg="#e8d5b0", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, width=18).grid(row=0, column=col, sticky="nsew", padx=1, pady=1)
 
+    canvas = tk.Canvas(table_frame, bg=BG_CARD, highlightthickness=0)
+    scrollbar = tk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
+    rows_frame = tk.Frame(canvas, bg=BG_CARD)
+    rows_frame.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+    rows_window = canvas.create_window((0, 0), window=rows_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.bind("<Configure>", lambda event: canvas.itemconfigure(rows_window, width=event.width))
+    canvas.grid(row=1, column=0, columnspan=4, sticky="nsew")
+    scrollbar.grid(row=1, column=4, sticky="ns")
+
     def load_data():
-        # Clear existing rows
-        for widget in table_frame.winfo_children():
-            if int(widget.grid_info()["row"]) > 0:
-                widget.destroy()
+        for widget in rows_frame.winfo_children():
+            widget.destroy()
 
         user_name = current_user.get("username", "")
         conn = get_db_connection()
@@ -77,20 +88,20 @@ def show_user_collection_screen():
             """, (user_name,))
             rows = cur.fetchall()
 
-            for idx, row in enumerate(rows, start=1):
+            for idx, row in enumerate(rows):
                 rec_id, btitle, adate, status = row
 
                 display_status = "[ACTIVE]" if status == "Active" else "[IN-ACTIVE]"
                 status_color = BTN_GREEN if status == "Active" else BTN_RED
 
-                tk.Label(table_frame, text=str(rec_id), font=FONT, bg="#fff3d4", fg=TEXT_DARK,
+                tk.Label(rows_frame, text=str(rec_id), font=FONT, bg="#fff3d4", fg=TEXT_DARK,
                          relief="solid", borderwidth=1).grid(row=idx, column=0, sticky="nsew", padx=1, pady=1)
-                tk.Label(table_frame, text=btitle, font=FONT, bg="#fff3d4", fg=TEXT_DARK,
+                tk.Label(rows_frame, text=btitle or "", font=FONT, bg="#fff3d4", fg=TEXT_DARK,
                          relief="solid", borderwidth=1).grid(row=idx, column=1, sticky="nsew", padx=1, pady=1)
-                tk.Label(table_frame, text=str(adate), font=FONT, bg="#fff3d4", fg=TEXT_DARK,
+                tk.Label(rows_frame, text=str(adate or ""), font=FONT, bg="#fff3d4", fg=TEXT_DARK,
                          relief="solid", borderwidth=1).grid(row=idx, column=2, sticky="nsew", padx=1, pady=1)
 
-                action_frame = tk.Frame(table_frame, bg="#fff3d4")
+                action_frame = tk.Frame(rows_frame, bg="#fff3d4")
                 action_frame.grid(row=idx, column=3, sticky="nsew", padx=1, pady=1)
                 
                 tk.Label(action_frame, text=display_status, bg=status_color, fg=TEXT_DARK,
@@ -101,9 +112,9 @@ def show_user_collection_screen():
 
             # Empty row if no data
             if not rows:
-                tk.Label(table_frame, text="No books in your collection yet.\nClick '+ Add To Collections' to start!", 
+                tk.Label(rows_frame, text="No books in your collection yet.\nClick '+ Add To Collections' to start!",
                          font=FONT, bg="#fff3d4", fg=TEXT_DARK,
-                         relief="solid", borderwidth=1).grid(row=1, column=0, columnspan=4, sticky="nsew", pady=20)
+                         relief="solid", borderwidth=1).grid(row=0, column=0, columnspan=4, sticky="nsew", pady=20)
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -117,7 +128,13 @@ def show_user_collection_screen():
         if conn:
             try:
                 cur = conn.cursor()
-                cur.execute("DELETE FROM collection WHERE Collection_ID=%s", (rec_id,))
+                cur.execute(
+                    "DELETE FROM collection WHERE Collection_ID=%s AND User_Name=%s",
+                    (rec_id, current_user.get("username", ""))
+                )
+                if cur.rowcount == 0:
+                    messagebox.showwarning("Not Removed", "This collection entry is no longer available.")
+                    return
                 conn.commit()
                 messagebox.showinfo("Removed", "Book removed from collection")
                 load_data()
@@ -134,20 +151,46 @@ def show_user_collection_screen():
         win.transient(root)
         win.grab_set()
 
-        tk.Label(win, text="Book Title:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(30, 5))
-        title_entry = tk.Entry(win, font=FONT, width=40)
-        title_entry.pack(pady=5)
+        tk.Label(win, text="Book:", font=FONT, bg=BG_CONTENT, fg=TEXT_DARK).pack(pady=(30, 5))
+        book_select = ttk.Combobox(win, font=FONT, width=38, state="readonly")
+        book_select.pack(pady=5)
+
+        conn = get_db_connection()
+        if not conn:
+            win.destroy()
+            return
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT Book_Title FROM Books ORDER BY Book_Title")
+            book_select["values"] = [row[0] for row in cur.fetchall()]
+        except Exception as e:
+            win.destroy()
+            messagebox.showerror("Error", f"Cannot load books:\n{e}")
+            return
+        finally:
+            conn.close()
 
         def save_new():
-            btitle = title_entry.get().strip()
+            btitle = book_select.get().strip()
             if not btitle:
-                messagebox.showwarning("Warning", "Enter a book title!")
+                messagebox.showwarning("Warning", "Select a book!")
                 return
             uname = current_user.get("username", "")
+            if not uname:
+                messagebox.showerror("Error", "Please log in again before editing your collection.")
+                return
             conn = get_db_connection()
             if conn:
                 try:
                     cur = conn.cursor()
+                    cur.execute(
+                        "SELECT Collection_ID FROM collection "
+                        "WHERE User_Name=%s AND Book_Title=%s AND Status='Active'",
+                        (uname, btitle)
+                    )
+                    if cur.fetchone():
+                        messagebox.showwarning("Already Added", "This book is already in your collection.")
+                        return
                     cur.execute("""
                         INSERT INTO collection (User_Name, Book_Title, Added_Date, Status)
                         VALUES (%s, %s, CURDATE(), 'Active')

@@ -409,6 +409,9 @@ def add_borrow_book():
     
     tk.Label(title_bar, text="ADD BOOKS & RECORD", font=FONT_HEADING,
              bg="#e8d590", fg=TEXT_DARK).pack(anchor="w")
+
+    btn_frame = tk.Frame(frame, bg="#f7e797", pady=8)
+    btn_frame.pack(side="bottom", fill="x")
     
     # ✅ FIXED: Wider form box + scrollable
     form_canvas = tk.Canvas(frame, bg="#f7e797", highlightthickness=0)
@@ -454,7 +457,7 @@ def add_borrow_book():
     
     book_var = tk.StringVar()
     book_select = ttk.Combobox(form_box, textvariable=book_var,
-                              values=book_titles, font=FONT, width=55)  # ← MUCH WIDER
+                              values=book_titles, font=FONT, width=55, state="readonly")
     book_select.pack(pady=(2, 12))
     
     if not book_titles:
@@ -493,9 +496,6 @@ def add_borrow_book():
     e_notes.pack(pady=(2, 20))
     
     # ========= BUTTONS =========
-    btn_frame = tk.Frame(form_box, bg="#f7e797")
-    btn_frame.pack()
-    
     def save_record():
         book_title = book_var.get().strip()
         status = status_var.get()

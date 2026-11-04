@@ -47,6 +47,11 @@ def show_admin_collection_screen():
     # Table container
     table_frame = tk.Frame(content, bg=BG_CARD, relief="solid", borderwidth=1)
     table_frame.pack(fill="both", expand=True)
+    table_frame.grid_columnconfigure(0, weight=1)
+    table_frame.grid_columnconfigure(1, weight=1)
+    table_frame.grid_columnconfigure(2, weight=1)
+    table_frame.grid_columnconfigure(3, weight=1)
+    table_frame.grid_rowconfigure(1, weight=1)
 
     # Headers
     headers = ["USER NAME", "BOOK TITLE", "ADDED DATE", "ACTIONS"]
@@ -54,12 +59,20 @@ def show_admin_collection_screen():
         tk.Label(table_frame, text=h, font=FONT, bg="#e8d5b0", fg=TEXT_DARK,
                  relief="solid", borderwidth=1, width=20).grid(row=0, column=col, sticky="nsew", padx=1, pady=1)
 
+    canvas = tk.Canvas(table_frame, bg=BG_CARD, highlightthickness=0)
+    scrollbar = tk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
+    rows_frame = tk.Frame(canvas, bg=BG_CARD)
+    rows_frame.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+    rows_window = canvas.create_window((0, 0), window=rows_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.bind("<Configure>", lambda event: canvas.itemconfigure(rows_window, width=event.width))
+    canvas.grid(row=1, column=0, columnspan=4, sticky="nsew")
+    scrollbar.grid(row=1, column=4, sticky="ns")
+
     # Load data
     def load_data():
-        # Clear existing rows
-        for widget in table_frame.winfo_children():
-            if int(widget.grid_info()["row"]) > 0:
-                widget.destroy()
+        for widget in rows_frame.winfo_children():
+            widget.destroy()
 
         conn = get_db_connection()
         if not conn: return
@@ -72,21 +85,21 @@ def show_admin_collection_screen():
             """)
             rows = cur.fetchall()
 
-            for idx, row in enumerate(rows, start=1):
+            for idx, row in enumerate(rows):
                 uname, btitle, adate, status, rec_id = row
 
                 display_status = "[ACTIVE]" if status == "Active" else "[IN-ACTIVE]"
                 status_color = BTN_GREEN if status == "Active" else BTN_RED
 
-                tk.Label(table_frame, text=uname, font=FONT, bg="#fff3d4", fg=TEXT_DARK,
+                tk.Label(rows_frame, text=uname or "", font=FONT, bg="#fff3d4", fg=TEXT_DARK,
                          relief="solid", borderwidth=1).grid(row=idx, column=0, sticky="nsew", padx=1, pady=1)
-                tk.Label(table_frame, text=btitle, font=FONT, bg="#fff3d4", fg=TEXT_DARK,
+                tk.Label(rows_frame, text=btitle or "", font=FONT, bg="#fff3d4", fg=TEXT_DARK,
                          relief="solid", borderwidth=1).grid(row=idx, column=1, sticky="nsew", padx=1, pady=1)
-                tk.Label(table_frame, text=str(adate), font=FONT, bg="#fff3d4", fg=TEXT_DARK,
+                tk.Label(rows_frame, text=str(adate or ""), font=FONT, bg="#fff3d4", fg=TEXT_DARK,
                          relief="solid", borderwidth=1).grid(row=idx, column=2, sticky="nsew", padx=1, pady=1)
 
                 # Status + Delete
-                action_frame = tk.Frame(table_frame, bg="#fff3d4")
+                action_frame = tk.Frame(rows_frame, bg="#fff3d4")
                 action_frame.grid(row=idx, column=3, sticky="nsew", padx=1, pady=1)
                 
                 tk.Label(action_frame, text=display_status, bg=status_color, fg=TEXT_DARK,
@@ -97,9 +110,9 @@ def show_admin_collection_screen():
 
             # Empty row if no data — improved message
             if not rows:
-                tk.Label(table_frame, text="No books in collection yet.",
+                tk.Label(rows_frame, text="No books in collection yet.",
                          font=FONT, bg="#fff3d4", fg=TEXT_DARK,
-                         relief="solid", borderwidth=1).grid(row=1, column=0, columnspan=4, sticky="nsew", pady=20)
+                         relief="solid", borderwidth=1).grid(row=0, column=0, columnspan=4, sticky="nsew", pady=20)
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
