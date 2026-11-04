@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 import Main
+import calendar
 from datetime import datetime, date
 
 # ========== SHORTCUTS ==========
@@ -86,8 +87,7 @@ class DatePicker:
         self.month_lbl.config(text=datetime(self.cur_year, self.cur_month, 1).strftime("%B %Y"))
         first = datetime(self.cur_year, self.cur_month, 1)
         start_col = (first.weekday() + 1) % 7
-        next_month = self.cur_month % 12 + 1
-        days_count = (datetime(self.cur_year, next_month, 1) - first).days
+        days_count = calendar.monthrange(self.cur_year, self.cur_month)[1]
         row = 0
         for _ in range(start_col):
             tk.Label(self.dates_frame, text="", width=5, bg="#f7e797").grid(row=row, column=_)
@@ -120,25 +120,20 @@ class DatePicker:
             return None
         try:
             return datetime.strptime(val, "%Y-%m-%d").date()
-        except:
-            return None
+        except ValueError as err:
+            raise ValueError("Enter a valid date in YYYY-MM-DD format.") from err
 
     def pack(self, **kwargs):
         self.frame.pack(**kwargs)
 
 # ========== LOAD BOOK LIST ==========
-_cached_books = None
 def get_book_list():
-    global _cached_books
-    if _cached_books is not None:
-        return _cached_books
     conn = get_db_connection()
     if not conn: return []
     try:
         cur = conn.cursor()
         cur.execute("SELECT Book_Title FROM Books ORDER BY Book_Title")
-        _cached_books = [row[0] for row in cur.fetchall()]
-        return _cached_books
+        return [row[0] for row in cur.fetchall()]
     except Exception as e:
         messagebox.showerror("Error", f"Cannot load books:\n{e}")
         return []
@@ -278,16 +273,24 @@ def load_borrow_from_db():
 
 def save_borrow_request():
     book_title = book_select.get().strip()
-    date_started = date_started_picker.get()
-    date_finished = date_finished_picker.get()
     rating = rate_var.get()
     notes = e_notes.get().strip()
+
+    try:
+        date_started = date_started_picker.get()
+        date_finished = date_finished_picker.get()
+    except ValueError as err:
+        messagebox.showwarning("Invalid Date", str(err))
+        return
 
     if not book_title:
         messagebox.showwarning("Warning", "Please select a Book!")
         return
     if not date_started:
         messagebox.showwarning("Warning", "Date Started is required!")
+        return
+    if date_finished and date_finished < date_started:
+        messagebox.showwarning("Invalid Date", "Date Finished cannot be before Date Started.")
         return
 
     conn = get_db_connection()
@@ -338,8 +341,8 @@ def view_record(rec_id):
                    br.Borrow_Date, br.Date_Returned, br.Book_Rating, br.Book_Review
             FROM borrow_records br
             JOIN Books b ON br.Book_ID = b.Book_ID
-            WHERE br.Record_ID = %s
-        """, (rec_id,))
+            WHERE br.Record_ID = %s AND br.User_ID = %s
+        """, (rec_id, current_user.get("user_id")))
         result = cur.fetchone()
         if not result:
             messagebox.showerror("Error", "Record not found!")

@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 import Main
+import calendar
 from datetime import datetime
 
 # ========== SHORTCUTS ==========
@@ -88,10 +89,7 @@ class DatePicker:
         start_weekday = first_day.weekday()
         start_weekday = (start_weekday + 1) % 7
         
-        days_in_month = (
-            datetime(self.current_year, self.current_month % 12 + 1, 1) -
-            datetime(self.current_year, self.current_month, 1)
-        ).days
+        days_in_month = calendar.monthrange(self.current_year, self.current_month)[1]
 
         row = 1
         for i in range(start_weekday):
@@ -134,7 +132,10 @@ class DatePicker:
         val = self.entry.get().strip()
         if val in ["YYYY-MM-DD", ""]:
             return None
-        return val
+        try:
+            return datetime.strptime(val, "%Y-%m-%d").date()
+        except ValueError as err:
+            raise ValueError("Enter a valid date in YYYY-MM-DD format.") from err
 
     def pack(self, **kwargs):
         self.frame.pack(**kwargs)
@@ -297,6 +298,11 @@ def render_borrow_rows(parent_frame, filtered_list=None):
                       font=("Arial", 9), command=lambda rid=rec_id: update_status(rid, "Completed")).pack(side="left", padx=2)
             tk.Button(action_frame, text="HOLD", bg=BTN_YELLOW, fg=TEXT_DARK, width=9,
                       font=("Arial", 9), command=lambda rid=rec_id: update_status(rid, "On Hold")).pack(side="left", padx=2)
+        elif status == "On Hold":
+            tk.Button(action_frame, text="RESUME", bg=BTN_GREEN, fg=TEXT_DARK, width=9,
+                      font=("Arial", 9), command=lambda rid=rec_id: update_status(rid, "Reading")).pack(side="left", padx=2)
+            tk.Button(action_frame, text="DONE", bg=BTN_GREEN, fg="white", width=9,
+                      font=("Arial", 9), command=lambda rid=rec_id: update_status(rid, "Completed")).pack(side="left", padx=2)
         else:
             tk.Label(action_frame, text="", font=FONT, bg="#f7e797").pack(side="left", padx=20)
 
@@ -326,7 +332,7 @@ def load_borrow_from_db():
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT br.Record_ID, u.Username, b.Book_Title, br.Reading_Status,
+            SELECT br.Record_ID, u.Username, b.Book_Title, br.Status,
                    br.Borrow_Date, br.Date_Returned
             FROM borrow_records br
             JOIN User u ON br.User_ID = u.User_ID
@@ -346,22 +352,33 @@ def load_borrow_from_db():
 
 
 def update_status(rec_id, new_status):
+    allowed_previous_statuses = {
+        "Reading": ("Pending", "On Hold"),
+        "Dropped": ("Pending",),
+        "Completed": ("Reading", "On Hold"),
+        "On Hold": ("Reading",),
+    }
+    previous_statuses = allowed_previous_statuses.get(new_status)
+    if previous_statuses is None:
+        messagebox.showerror("Invalid Status", f"Unsupported status: {new_status}")
+        return
+
     conn = get_db_connection()
     if conn:
         try:
             cur = conn.cursor()
+            placeholders = ", ".join(["%s"] * len(previous_statuses))
+            update_query = "UPDATE borrow_records SET Status = %s"
             if new_status == "Completed":
-                cur.execute("""
-                    UPDATE borrow_records 
-                    SET Reading_Status = %s, Date_Returned = CURDATE() 
-                    WHERE Record_ID = %s
-                """, (new_status, rec_id))
-            else:
-                cur.execute("""
-                    UPDATE borrow_records 
-                    SET Reading_Status = %s 
-                    WHERE Record_ID = %s
-                """, (new_status, rec_id))
+                update_query += ", Date_Returned = CURDATE()"
+            update_query += " WHERE Record_ID = %s AND Status IN (" + placeholders + ")"
+            cur.execute(update_query, (new_status, rec_id, *previous_statuses))
+            if cur.rowcount == 0:
+                messagebox.showwarning(
+                    "Status Not Changed",
+                    "The record no longer has a status that allows this change."
+                )
+                return
             conn.commit()
             messagebox.showinfo("Updated", f"Status changed to: {new_status}")
             show_admin_borrow_screen()
@@ -482,16 +499,24 @@ def add_borrow_book():
     def save_record():
         book_title = book_var.get().strip()
         status = status_var.get()
-        date_started = date_started_picker.get()
-        date_finished = date_finished_picker.get()
         rating = rate_var.get()
         notes = e_notes.get().strip()
-        
+
+        try:
+            date_started = date_started_picker.get()
+            date_finished = date_finished_picker.get()
+        except ValueError as err:
+            messagebox.showwarning("Invalid Date", str(err))
+            return
+
         if not book_title:
             messagebox.showwarning("Warning", "Please select a Book!")
             return
         if not date_started:
             messagebox.showwarning("Warning", "Please select Date Started!")
+            return
+        if date_finished and date_finished < date_started:
+            messagebox.showwarning("Invalid Date", "Date Finished cannot be before Date Started.")
             return
         
         conn = get_db_connection()
@@ -520,7 +545,7 @@ def add_borrow_book():
             
             cur.execute("""
                 INSERT INTO borrow_records 
-                (User_ID, Book_ID, Reading_Status, Borrow_Date, Date_Returned, Book_Rating, Book_Review)
+                (User_ID, Book_ID, Status, Borrow_Date, Date_Returned, Book_Rating, Book_Review)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 user_id, book_id, status,
@@ -554,7 +579,7 @@ def view_record(rec_id):
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT br.Record_ID, u.Username, b.Book_Title, br.Reading_Status,
+            SELECT br.Record_ID, u.Username, b.Book_Title, br.Status,
                    br.Borrow_Date, br.Date_Returned, br.Book_Rating, br.Book_Review
             FROM borrow_records br
             JOIN User u ON br.User_ID = u.User_ID
@@ -604,7 +629,7 @@ def view_record(rec_id):
         # Mouse wheel scroll
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        view_win.bind_all("<MouseWheel>", _on_mousewheel)
+        view_win.bind("<MouseWheel>", _on_mousewheel)
 
         def get_stars(rating_val):
             if not rating_val or rating_val in ["---/5", ""]:
@@ -656,7 +681,7 @@ def view_record(rec_id):
         # BACK Button
         tk.Button(content, text="BACK", bg=BTN_BROWN, fg="white", width=12,
                  relief="solid", borderwidth=1, font=("Arial", 10, "bold"),
-                 command=lambda: [view_win.destroy(), view_win.unbind_all("<MouseWheel>")]).pack(pady=(10, 15))
+                 command=view_win.destroy).pack(pady=(10, 15))
 
     except Exception as e:
         messagebox.showerror("Error", f"Could not load record:\n{e}")
