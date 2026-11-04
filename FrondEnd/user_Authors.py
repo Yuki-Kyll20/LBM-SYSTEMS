@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
+from PIL import Image, ImageTk
 import Main
+import os
 
 # ========== SHORTCUTS ==========
 root = Main.root
@@ -18,6 +20,36 @@ TEXT_DARK = Main.TEXT_DARK
 FONT = Main.FONT
 FONT_TITLE = Main.FONT_TITLE
 FONT_HEADING = Main.FONT_HEADING
+
+AUTHOR_PICTURE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "author_profile_pics"
+)
+
+def get_author_picture_path(author_id):
+    for extension in (".png", ".jpg", ".jpeg"):
+        path = os.path.join(AUTHOR_PICTURE_DIR, f"author_{author_id}{extension}")
+        if os.path.isfile(path):
+            return path
+    return None
+
+def display_author_picture(label, image_path, size=(160, 160)):
+    if not image_path:
+        label.config(
+            image="", text="AUTHOR\nPICTURE", width=20, height=10,
+            bg="#e8d5b0",
+        )
+        label.image = None
+        return
+
+    try:
+        with Image.open(image_path) as source:
+            image = source.convert("RGB")
+            image.thumbnail(size, Image.Resampling.LANCZOS)
+        photo = ImageTk.PhotoImage(image)
+        label.config(image=photo, text="", width=size[0], height=size[1])
+        label.image = photo
+    except (OSError, tk.TclError) as err:
+        messagebox.showerror("Picture Error", f"Could not display author picture:\n{err}")
 
 authors_data = []
 selected_author_index = -1
@@ -104,13 +136,17 @@ def render_authors_list(data_list, parent_frame=None):
         tk.Label(parent_frame, text="No authors found.", font=FONT, bg=BG_CARD, fg=TEXT_DARK).pack(pady=50)
         return
     
-    for idx, author in enumerate(data_list):
+    for author in data_list:
         author_id, fullname, bio, book_count = author
+        original_index = next(
+            (i for i, original in enumerate(authors_data) if original[0] == author_id),
+            -1,
+        )
         
         row = tk.Frame(parent_frame, bg=BG_CARD, pady=8, cursor="hand2")
         row.pack(fill="x")
         
-        def make_select(i=idx, r=row):
+        def make_select(i=original_index, r=row):
             def select_this(e):
                 global selected_author_index
                 selected_author_index = i
@@ -122,7 +158,8 @@ def render_authors_list(data_list, parent_frame=None):
                 r.configure(bg="#e5d9b6")
             return select_this
         
-        row.bind("<Button-1>", make_select(idx, row))
+        select_row = make_select()
+        row.bind("<Button-1>", select_row)
         
         tk.Label(row, text=str(author_id), font=FONT, bg=BG_CARD, fg=TEXT_DARK,
                  width=6, anchor="w").pack(side="left", padx=5)
@@ -133,11 +170,15 @@ def render_authors_list(data_list, parent_frame=None):
                  width=35, anchor="w").pack(side="left", padx=5)
         tk.Label(row, text=f"{book_count} Books", font=FONT, bg=BG_CARD, fg=TEXT_DARK,
                  width=12, anchor="e").pack(side="right", padx=10)
+        for item in row.winfo_children():
+            item.bind("<Button-1>", select_row)
 
 # ==================================================
 # FILTER / SEARCH
 # ==================================================
 def filter_authors(search_text):
+    global selected_author_index
+    selected_author_index = -1
     search_text = search_text.strip().lower()
     filtered = authors_data
     if search_text:
@@ -176,8 +217,32 @@ def view_selected_author():
     tk.Button(top_bar, text="BACK", bg=BTN_YELLOW, fg="#000", width=10,
               relief="solid", borderwidth=1, command=show_user_authors_screen).pack(side="right", padx=5)
     
-    view_container = tk.Frame(frame, bg=BG_CARD, padx=30, pady=30, relief="solid", borderwidth=2)
-    view_container.pack(pady=50)
+    view_area = tk.Frame(frame, bg=BG_MAIN)
+    view_area.pack(fill="both", expand=True, padx=20, pady=10)
+    view_canvas = tk.Canvas(view_area, bg=BG_MAIN, highlightthickness=0)
+    view_scrollbar = tk.Scrollbar(view_area, orient="vertical", command=view_canvas.yview)
+    view_container = tk.Frame(
+        view_canvas, bg=BG_CARD, padx=30, pady=30, relief="solid", borderwidth=2
+    )
+    view_window = view_canvas.create_window((0, 0), window=view_container, anchor="nw")
+    view_container.bind(
+        "<Configure>",
+        lambda _event: view_canvas.configure(scrollregion=view_canvas.bbox("all")),
+    )
+    view_canvas.bind(
+        "<Configure>",
+        lambda event: view_canvas.itemconfigure(view_window, width=event.width),
+    )
+    view_canvas.configure(yscrollcommand=view_scrollbar.set)
+    view_canvas.pack(side="left", fill="both", expand=True)
+    view_scrollbar.pack(side="right", fill="y")
+
+    picture_label = tk.Label(
+        view_container, text="AUTHOR\nPICTURE", bg="#e8d5b0", fg=TEXT_DARK,
+        font=FONT, width=20, height=10, relief="solid", borderwidth=1,
+    )
+    picture_label.pack(anchor="w", pady=(0, 12))
+    display_author_picture(picture_label, get_author_picture_path(author[0]))
     
     def make_view_field(label_text, value):
         tk.Label(view_container, text=label_text, font=FONT, bg=BG_CARD, fg=TEXT_DARK, anchor="w").pack(fill="x", pady=(8, 2))

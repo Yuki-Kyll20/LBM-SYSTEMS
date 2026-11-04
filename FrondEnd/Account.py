@@ -283,8 +283,8 @@ def go_home():
 
 def go_books():
     if current_user.get("role") == "Admin":
-        import Books
-        Books.show_books_screen()
+        import books
+        books.show_books_screen()
     else:
         import user_books
         user_books.show_user_books_screen()

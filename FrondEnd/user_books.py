@@ -1,6 +1,8 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
+from PIL import Image, ImageTk
 import Main
+import os
 
 # ========== SHORTCUTS ==========
 root = Main.root
@@ -18,6 +20,33 @@ TEXT_DARK = Main.TEXT_DARK
 FONT = Main.FONT
 FONT_TITLE = Main.FONT_TITLE
 FONT_HEADING = Main.FONT_HEADING
+
+BOOK_COVER_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "book_covers")
+
+def get_book_cover_path(book_id):
+    for extension in (".png", ".jpg", ".jpeg"):
+        path = os.path.join(BOOK_COVER_DIR, f"book_{book_id}{extension}")
+        if os.path.isfile(path):
+            return path
+    return None
+
+def display_book_cover(label, image_path, size=(160, 200)):
+    if not image_path:
+        label.config(
+            image="", text="BOOK\nCOVER", width=20, height=10,
+            bg="#e5d9b6",
+        )
+        label.image = None
+        return
+    try:
+        with Image.open(image_path) as source:
+            image = source.convert("RGB")
+            image.thumbnail(size, Image.Resampling.LANCZOS)
+        photo = ImageTk.PhotoImage(image)
+        label.config(image=photo, text="", width=size[0], height=size[1])
+        label.image = photo
+    except (OSError, tk.TclError) as err:
+        messagebox.showerror("Cover Error", f"Could not display book cover:\n{err}")
 
 books_data = []
 selected_book_index = -1
@@ -66,8 +95,12 @@ def show_user_books_screen():
         lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
     )
     
-    canvas.create_window((0, 0), window=rows_container, anchor="nw")
+    rows_window = canvas.create_window((0, 0), window=rows_container, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.bind(
+        "<Configure>",
+        lambda event: canvas.itemconfigure(rows_window, width=event.width),
+    )
     
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
@@ -108,27 +141,35 @@ def render_books_list(data_list, parent_frame=None):
         tk.Label(parent_frame, text="No books found.", font=FONT, bg=BG_CARD, fg=TEXT_DARK).pack(pady=50)
         return
     
-    for idx, book in enumerate(data_list):
+    for book in data_list:
         book_id, title, publisher, year, isbn, description, status = book
         status = status or "ACTIVE"
+        original_index = next(
+            (i for i, original in enumerate(books_data) if original[0] == book_id),
+            -1,
+        )
         
         row = tk.Frame(parent_frame, bg=BG_CARD, pady=8, cursor="hand2")
         row.pack(fill="x", padx=5)
         
-        def make_select(i=idx, r=row):
+        def make_select(i=original_index, r=row):
             def select_this(e):
                 global selected_book_index
                 selected_book_index = i
-                # Reset all rows
                 for child in parent_frame.winfo_children():
                     if isinstance(child, tk.Frame) and child.cget("cursor") == "hand2":
                         child.config(bg=BG_CARD)
-                # Highlight selected
+                        for item in child.winfo_children():
+                            if isinstance(item, tk.Label):
+                                item.config(bg=BG_CARD)
                 r.config(bg="#e5d9b6")
+                for item in r.winfo_children():
+                    if isinstance(item, tk.Label):
+                        item.config(bg="#e5d9b6")
             return select_this
         
-        # Bind click to row
-        row.bind("<Button-1>", make_select(idx, row))
+        select_row = make_select()
+        row.bind("<Button-1>", select_row)
 
         # ID
         tk.Label(row, text=str(book_id), font=FONT, bg=BG_CARD, fg=TEXT_DARK,
@@ -153,11 +194,15 @@ def render_books_list(data_list, parent_frame=None):
         status_color = "#22c55e" if status.upper() == "ACTIVE" else "#ef4444"
         tk.Label(row, text=status.upper(), font=FONT, bg=BG_CARD, fg=status_color,
                  width=10, anchor="e").pack(side="right", padx=5)
+        for item in row.winfo_children():
+            item.bind("<Button-1>", select_row)
 
 # ==================================================
 # FILTER / SEARCH
 # ==================================================
 def filter_books(search_text):
+    global selected_book_index
+    selected_book_index = -1
     search_text = search_text.strip().lower()
     filtered = books_data
     if search_text:
@@ -197,12 +242,32 @@ def view_selected_book():
     tk.Button(top_bar, text="BACK", bg=BTN_YELLOW, fg="#000", width=10,
               relief="solid", borderwidth=1, command=show_user_books_screen).pack(side="right", padx=5)
     
-    view_container = tk.Frame(frame, bg=BG_CARD, padx=30, pady=30, relief="solid", borderwidth=1)
-    view_container.pack(pady=30)
+    view_area = tk.Frame(frame, bg=BG_MAIN)
+    view_area.pack(fill="both", expand=True, padx=20, pady=10)
+    view_canvas = tk.Canvas(view_area, bg=BG_MAIN, highlightthickness=0)
+    view_scrollbar = tk.Scrollbar(view_area, orient="vertical", command=view_canvas.yview)
+    view_container = tk.Frame(
+        view_canvas, bg=BG_CARD, padx=30, pady=30, relief="solid", borderwidth=1
+    )
+    view_window = view_canvas.create_window((0, 0), window=view_container, anchor="nw")
+    view_container.bind(
+        "<Configure>",
+        lambda _event: view_canvas.configure(scrollregion=view_canvas.bbox("all")),
+    )
+    view_canvas.bind(
+        "<Configure>",
+        lambda event: view_canvas.itemconfigure(view_window, width=event.width),
+    )
+    view_canvas.configure(yscrollcommand=view_scrollbar.set)
+    view_canvas.pack(side="left", fill="both", expand=True)
+    view_scrollbar.pack(side="right", fill="y")
     
-    # PROFILE PICTURE BOX
-    tk.Label(view_container, text="PROFILE\nPICTURE", font=FONT, bg="#e5d9b6", fg=TEXT_DARK,
-             width=12, height=4, relief="solid", borderwidth=1).pack(anchor="w", pady=(0, 15))
+    cover_label = tk.Label(
+        view_container, text="BOOK\nCOVER", font=FONT, bg="#e5d9b6", fg=TEXT_DARK,
+        width=20, height=10, relief="solid", borderwidth=1,
+    )
+    cover_label.pack(anchor="w", pady=(0, 15))
+    display_book_cover(cover_label, get_book_cover_path(book[0]))
     
     def make_view_field(label_text, value):
         tk.Label(view_container, text=label_text, font=FONT, bg=BG_CARD, fg=TEXT_DARK, anchor="w").pack(fill="x")

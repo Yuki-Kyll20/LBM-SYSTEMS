@@ -230,7 +230,7 @@ def show_settings_screen():
               font=FONT, relief="solid", borderwidth=1, command=save_system_settings).pack(pady=10)
 
 def go_home(): import AdminDB; AdminDB.show_admin_dashboard()
-def go_books(): import Books; Books.show_books_screen()
+def go_books(): import books; books.show_books_screen()
 def go_authors(): import Authors; Authors.show_authors_screen()
 def go_categories(): import Category; Category.show_categories_screen()
 def go_reading(): import AdminBorrow; AdminBorrow.show_admin_borrow_screen()
