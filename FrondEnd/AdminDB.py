@@ -73,9 +73,10 @@ def show_overdue_detail(record_id, username, book_title, due_date):
     tk.Label(header, text="Days Late", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=12).grid(row=0, column=2)
     tk.Label(header, text="Fine Amount", font=FONT_TITLE, bg="#FFF3D0", fg=TEXT_DARK, width=15).grid(row=0, column=3)
     
-    from datetime import datetime, timedelta
-    today = datetime.now()
-    days_late = (today - due_date).days if due_date else 0
+    from datetime import date, datetime
+    if isinstance(due_date, datetime):
+        due_date = due_date.date()
+    days_late = max((date.today() - due_date).days, 0) if due_date else 0
     fine_per_day = 5
     fine_amount = days_late * fine_per_day
     
@@ -101,7 +102,7 @@ def show_overdue_detail(record_id, username, book_title, due_date):
         if conn:
             try:
                 cur = conn.cursor()
-                cur.execute("UPDATE borrow_records SET Status='Completed', Date_Returned=NOW() WHERE id=%s", (record_id,))
+                cur.execute("UPDATE borrow_records SET Status='Completed', Date_Returned=NOW() WHERE Record_ID=%s", (record_id,))
                 conn.commit()
                 messagebox.showinfo("Returned", "Marked as returned!")
                 show_notifications()
@@ -144,7 +145,7 @@ def show_notifications():
         try:
             cur = conn.cursor(dictionary=True)
             cur.execute("""
-                SELECT br.id, u.Username, b.Title 
+                SELECT br.Record_ID AS id, u.Username, b.Book_Title AS Title
                 FROM borrow_records br
                 JOIN User u ON br.User_ID = u.User_ID
                 JOIN Books b ON br.Book_ID = b.Book_ID
@@ -176,7 +177,7 @@ def show_notifications():
                 if c:
                     try:
                         cur = c.cursor()
-                        cur.execute("UPDATE borrow_records SET Status='Reading' WHERE id=%s", (rid,))
+                        cur.execute("UPDATE borrow_records SET Status='Reading' WHERE Record_ID=%s", (rid,))
                         c.commit()
                         messagebox.showinfo("Approved", "Request approved!")
                         show_notifications()
@@ -190,7 +191,7 @@ def show_notifications():
                 if c:
                     try:
                         cur = c.cursor()
-                        cur.execute("UPDATE borrow_records SET Status='Dropped' WHERE id=%s", (rid,))
+                        cur.execute("UPDATE borrow_records SET Status='Dropped' WHERE Record_ID=%s", (rid,))
                         c.commit()
                         messagebox.showinfo("Rejected", "Request rejected!")
                         show_notifications()
@@ -218,13 +219,14 @@ def show_notifications():
         try:
             cur = conn.cursor(dictionary=True)
             cur.execute("""
-                SELECT br.id, u.Username, b.Title, br.Date_Finish AS Due_Date
+                SELECT br.Record_ID AS id, u.Username, b.Book_Title AS Title,
+                       br.Date_Returned AS Due_Date
                 FROM borrow_records br
                 JOIN User u ON br.User_ID = u.User_ID
                 JOIN Books b ON br.Book_ID = b.Book_ID
                 WHERE br.Status IN ('Reading', 'On Hold')
-                  AND br.Date_Finish < %s
-                  AND br.Date_Returned IS NULL
+                  AND br.Date_Returned < %s
+                  AND br.Date_Returned IS NOT NULL
             """, (datetime.now(),))
             overdue_items = cur.fetchall()
         except Exception as e:
@@ -652,7 +654,6 @@ def show_edit_user(username):
             return
 
         if new_email:
-            import Main
             valid_email, email_msg = Main.validate_email(new_email)
             if not valid_email:
                 messagebox.showerror("Invalid Email", email_msg)
@@ -664,8 +665,9 @@ def show_edit_user(username):
             cur = conn.cursor()
             
             if new_password:
-                if len(new_password) < 8:
-                    messagebox.showwarning("Warning", "Password must be at least 8 characters long!")
+                valid_password, password_msg = Main.validate_password(new_password)
+                if not valid_password:
+                    messagebox.showwarning("Invalid Password", password_msg)
                     return
                 # HASH NEW PASSWORD BEFORE SAVING
                 hashed_pw = hash_password(new_password)

@@ -42,8 +42,8 @@ def validate_email(email):
     
     email = email.strip()
 
-    if "@" not in email:
-        return False, "Email MUST contain @\nExample: name@gmail.com"
+    if email.count("@") != 1:
+        return False, "Email must contain exactly one @\nExample: name@gmail.com"
     
     # Allowed domains — ONLY these two
     allowed_domains = ["gmail.com", "email.com"]
@@ -56,7 +56,7 @@ def validate_email(email):
     if after_at not in allowed_domains:
         return False, f"Only these domains allowed:\n✅ @gmail.com\n✅ @email.com\n\nYou typed: @{after_at}"
     
-    if " " in email:
+    if any(char.isspace() for char in email):
         return False, "No spaces allowed"
     
     return True, "Valid"
@@ -343,6 +343,10 @@ def show_signup():
             messagebox.showerror("Invalid Password", pwd_msg)
             return
         
+        if not ans:
+            messagebox.showwarning("Warning", "Security answer is required!")
+            return
+
         # Security Answer — no special characters
         if not re.fullmatch(r'[A-Za-z0-9\s]+', ans):
             messagebox.showerror(
@@ -677,6 +681,7 @@ def show_login():
     
     def do_login():
         user = e_user.get().strip()
+        email = e_email.get().strip()
         pwd = e_pass.get()
 
         if not all([user, pwd]):

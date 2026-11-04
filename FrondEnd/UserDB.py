@@ -88,11 +88,11 @@ def show_notifications():
         try:
             cur = conn.cursor(dictionary=True)
             cur.execute("""
-                SELECT br.Record_ID, b.Title AS Book_Title, br.Date_Started AS Borrow_Date, br.Date_Finish AS Date_Returned
+                SELECT br.Record_ID, b.Book_Title, br.Borrow_Date, br.Date_Returned
                 FROM borrow_records br
                 JOIN Books b ON br.Book_ID = b.Book_ID
                 WHERE br.User_ID = %s AND br.Status = 'Reading'
-                ORDER BY br.Date_Started DESC
+                ORDER BY br.Borrow_Date DESC
             """, (my_user_id,))
             approved_list = cur.fetchall()
         except Exception as e:
@@ -137,7 +137,7 @@ def show_notifications():
         try:
             cur = conn.cursor(dictionary=True)
             cur.execute("""
-                SELECT br.Record_ID, b.Title AS Book_Title
+                SELECT br.Record_ID, b.Book_Title
                 FROM borrow_records br
                 JOIN Books b ON br.Book_ID = b.Book_ID
                 WHERE br.User_ID = %s AND br.Status = 'Dropped'
@@ -169,7 +169,7 @@ def show_notifications():
         try:
             cur = conn.cursor(dictionary=True)
             cur.execute("""
-                SELECT b.Title AS Book_Title, br.Date_Finish AS Date_Returned
+                SELECT b.Book_Title AS Book_Title, br.Date_Returned AS Due_Date
                 FROM borrow_records br
                 JOIN Books b ON br.Book_ID = b.Book_ID
                 WHERE br.User_ID = %s AND br.Status = 'Reading' AND br.Date_Returned IS NOT NULL
@@ -186,7 +186,10 @@ def show_notifications():
         tk.Label(upcoming_frame, text="No upcoming due dates.", font=FONT, bg="#fff3cd", fg=TEXT_DARK).pack(anchor="w")
     else:
         for item in due_list:
-            days_left = (item['Date_Returned'] - datetime.now()).days
+            due_date = item['Due_Date']
+            if isinstance(due_date, datetime):
+                due_date = due_date.date()
+            days_left = (due_date - datetime.now().date()).days
             if days_left < 0:
                 label = f"⚠️ OVERDUE: \"{item['Book_Title']}\" — {-days_left} day(s) late!"
             elif days_left == 0:
